@@ -1,0 +1,42 @@
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: smartlight
+      MYSQL_USER: smartlight
+      MYSQL_PASSWORD: ${DB_PASS}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS}
+    command: --innodb-buffer-pool-size=128M --performance-schema=OFF
+    volumes:
+      - dbdata:/var/lib/mysql
+      - ../database/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    # sem "ports": a base de dados não fica exposta à Internet
+  web:
+    build: ../backend
+    restart: unless-stopped
+    environment:
+      DB_DSN: "mysql:host=db;dbname=smartlight;charset=utf8mb4"
+      DB_USER: smartlight
+      DB_PASS: ${DB_PASS}
+      ADMIN_KEY: ${ADMIN_KEY}
+    volumes:
+      - ../backend/public:/var/www/html:ro
+    depends_on:
+      - db
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMINIO: ${DOMINIO}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+    depends_on:
+      - web
+volumes:
+  dbdata:
+  caddydata:

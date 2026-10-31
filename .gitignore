@@ -10,6 +10,7 @@ venv/
 .env.*
 !.env.example
 config.h
+dashboard/config.php
 *.sync-conflict-*
 
 # PlatformIO
