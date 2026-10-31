@@ -1,0 +1,8 @@
+<?php
+
+return [
+    'url_ultimas' => 'https://EXEMPLO/ultimas.php',  // rota do servidor com as últimas leituras
+    'chave'       => 'COLOCAR_A_CHAVE_AQUI',
+    'exemplo'     => false,  // true = dados inventados, para testar sem servidor
+    'offline_s'   => 60,     // segundos sem leituras até o nó aparecer como offline
+];
