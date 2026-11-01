@@ -120,23 +120,31 @@ para None. No CSV, None é representado por uma célula vazia.
 - luz_pct é nulo porque o sensor atual é digital.
 - Os valores nulos são preservados, ficando vazios no CSV.
 - led_pct indica a intensidade comandada ao LED, não energia medida.
-- Ainda não existem medições energéticas nesta amostra.
+- Os dados atualmente processados não contêm medições energéticas.
 - Ainda não existe integração meteorológica.
 - As médias horárias não são ponderadas pelo tempo.
 - Horas sem leituras não são preenchidas.
 - Um resumo horário não comprova que a hora está completa.
 - A proporção de leituras com presença não representa o tempo exato de ocupação.
 - Os testes verificam regras do código, não a precisão dos sensores.
-- A validação está atualmente restrita ao nó no3.
+- Os comandos de análise e agregação processam atualmente o no3, a integração dos restantes nós está pendente.
 - Intervalos superiores a 30 segundos geram alertas configuráveis,
   mas não confirmam perda de dados.
-- A análise cobre apenas os intervalos internos da amostra.
+- A análise cobre apenas os intervalos internos dos dados disponíveis.
+- O histórico do no3 abrange 24 a 30 de outubro de 2026, com dias parciais.
+- luz_raw tem 2 519 valores ausentes no histórico do no3.
+- hora ausente no TSV não significa ausência de timestamp.
+- numero_leituras_luz_raw conta valores disponíveis, não medições
+  fisicamente validadas.
+- As regras específicas para sensores avariados, valores negativos
+  e mudanças de unidades ainda não estão implementadas.
+- Não se devem misturar luminosidade digital, valores analógicos e lux.
 
 ## Implementação e testes
 
 O projeto segue o Modelo em V.
 
-Nesta componente, os testes unitários verificam:
+Nesta componente, os testes automáticos verificam:
 - Preservação dos dados originais e de luz_pct nulo.
 - Conversão do timestamp para UTC.
 - Ordenação cronológica.
@@ -150,14 +158,33 @@ Nesta componente, os testes unitários verificam:
 - Configuração do limite e rejeição de limites inválidos.
 - Preservação da entrada durante a análise.
 
+Distribuição dos 68 casos de teste:
+
+- 27 de importação TSV.
+- 16 no ficheiro de preparação, incluindo um teste de integração
+  entre importação e preparação.
+- 13 de análise de qualidade.
+- 12 de agregação horária.
+
+Estas contagens incluem os casos parametrizados.
+
+Os testes adicionais verificam seleção do nó, conversão de tipos,
+NULL e células vazias, estrutura do TSV, UTF-8 com BOM,
+hora opcional e contagem de luz_raw disponível.
+
+A seleção das fontes nos comandos e a geração do CSV do histórico
+foram também verificadas manualmente.
+
 ## Próximas etapas
 
-1. Obter e analisar um histórico maior de leituras.
-2. Identificar falhas de recolha e preparar resumos por hora.
-3. Integrar meteorologia por localização e instante.
-4. Definir e validar o consumo usado como alvo da previsão.
-5. Treinar e comparar os modelos.
+1. Recolher e validar meteorologia para a localização e período do no3.
+2. Cruzar meteorologia e resumos horários, respeitando os intervalos
+   temporais representados por cada variável.
+3. Confirmar localizações, unidades, mudanças de sensores e anomalias
+   antes de integrar os restantes nós.
+4. Continuar a recolha e definir o alvo energético e o horizonte.
+5. Treinar e comparar os modelos quando existir consumo válido.
 6. Integrar as previsões com a API e o dashboard.
 
-Os endpoints e o formato de envio das previsões serão
-combinados com os responsáveis pelo servidor, BD e dashboard.
+Os endpoints, a autenticação e o formato de envio das previsões
+ainda serão acordados com os responsáveis.
