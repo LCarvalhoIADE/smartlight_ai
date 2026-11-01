@@ -16,13 +16,16 @@ respeitando a ordem temporal dos dados de treino e teste.
 ## Estado atual
 
 - Ambiente Python e dependências configurados.
-- Amostra local de 50 leituras reais do nó no3.
-- Validação e preparação dos dados implementadas.
-- CSV gerado com as leituras ordenadas cronologicamente.
-- Análise de nulos, intervalos e possíveis interrupções implementada.
-- 36 testes automáticos aprovados: 13 de preparação, 13 de qualidade e 10 de agregação.
-- Agregação por hora UTC e divisão implementada.
-- Sem cálculo de consumo ou treino de modelos nesta etapa.
+- Amostra JSON de 50 leituras do no3 preservada.
+- Exportação TSV recebida com 118 492 registos de no1, no2 e no3.
+- Pipeline atual aplicado às 33 190 leituras do no3.
+- Importação TSV com seleção do nó e conversão dos tipos.
+- Preparação compatível com hora ausente e luminosidade nula.
+- Análise de nulos, intervalos e possíveis interrupções.
+- Agregação por hora UTC e divisão: 142 resumos do histórico do no3.
+- 68 testes automáticos aprovados.
+- Sem cálculo de consumo, treino de modelos ou integração meteorológica.
+
 ## Organização
 
 - data/raw/: dados originais, apenas locais.
@@ -37,49 +40,79 @@ ser publicados no Git.
 
 ## Executar
 
-Executar os comandos na raiz do repositório,
-com o ambiente virtual ai/.venv ativo.
+Executar na raiz do repositório, com ai/.venv ativo.
+Os ficheiros de dados reais devem existir localmente.
 
-Preparar a amostra e gerar o CSV:
+Importar o histórico do no3 e mostrar as contagens:
+
+```powershell
+python -m ai.src.importar_leituras
+```
+
+Preparar a amostra JSON e gerar o CSV de leituras:
 
 ```powershell
 python ai/src/preparar_dados.py
 ```
 
-Executar todos os testes da IA:
+Analisar o histórico TSV:
 
 ```powershell
-python -m pytest ai/tests/test_preparar_dados.py -v
+python -m ai.src.analisar_qualidade
 ```
 
-Gerar os resumos por hora:
+Analisar a amostra JSON:
+
+```powershell
+python -m ai.src.analisar_qualidade --amostra
+```
+
+Gerar os resumos horários do histórico TSV:
 
 ```powershell
 python -m ai.src.agregar_por_hora
 ```
 
+Gerar os resumos horários da amostra JSON:
+
+```powershell
+python -m ai.src.agregar_por_hora --amostra
+```
+
+Acrescentar --detalhes ao comando de agregação para apresentar
+cada resumo horário no terminal.
+
+Executar todos os testes:
+
+```powershell
+python -m pytest ai/tests -q
+```
+
 ## Entrada e saída
 
-Entrada local:
-data/raw/no3_amostra.json
+Caminhos relativos à raiz do repositório:
 
-Saída da preparação:
-ai/data/processed/no3_preparado.csv
+| Entrada | Operação | Saída |
+|---|---|---|
+| ai/data/raw/no3_amostra.json | Preparação da amostra | ai/data/processed/no3_preparado.csv |
+| ai/data/raw/no3_amostra.json | Agregação com --amostra | ai/data/processed/no3_por_hora.csv |
+| ai/data/raw/leituras.tsv | Agregação do histórico do no3 | ai/data/processed/no3_historico_por_hora.csv |
 
-O script de preparação preserva o JSON original, valida os campos
-obrigatórios e algumas regras de valores, rejeita duplicados pelo
-conjunto (no_id, divisao, ts), ordena as leituras e acrescenta data_utc.
+A importação e a análise de qualidade apresentam resultados no
+terminal, sem criar ficheiros.
 
-O CSV de saída é substituído em cada execução.
+A função preparar valida algumas regras dos dados, rejeita duplicados
+por (no_id, divisao, ts), ordena as leituras e acrescenta data_utc.
+É reutilizada pela análise e pela agregação.
 
-A análise de qualidade lê o JSON original e apresenta
-o resumo no terminal, sem criar outro ficheiro.
+Os originais são preservados. Cada CSV é substituído quando se executa
+a operação correspondente. A saída do histórico é separada da amostra.
 
-Saída da agregação:
-ai/data/processed/no3_por_hora.csv
+O campo hora é opcional. Quando não existe na entrada, fica None.
+O instante UTC é sempre calculado a partir de ts.
 
-O CSV horário é substituído em cada execução.
-As médias representam apenas as leituras disponíveis.
+NULL e células vazias nos campos de luminosidade do TSV são convertidos
+para None. No CSV, None é representado por uma célula vazia.
 
 ## Limitações atuais
 
