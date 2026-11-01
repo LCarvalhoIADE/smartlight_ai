@@ -80,16 +80,14 @@ Testes:
 - ai/tests/test_preparar_dados.py
 - ai/tests/test_analisar_qualidade.py
 
-Ambos os scripts preservam o JSON original.
-A validação permanece restrita ao nó no3.
-
 Agregação horária:
 - ai/src/agregar_por_hora.py
 - Reutiliza a validação da função preparar.
 - Agrupa por nó, divisão e hora UTC.
 - Calcula contagens, proporção de presença e médias de LED e luminosidade.
 - Preserva luminosidade nula quando não existem valores disponíveis.
-- Produz ai/data/processed/no3_por_hora.csv.
+- Por defeito, produz ai/data/processed/no3_historico_por_hora.csv.
+- Com --amostra, produz ai/data/processed/no3_por_hora.csv.
 
 Testes da agregação:
 - ai/tests/test_agregar_por_hora.py
@@ -115,8 +113,9 @@ O main de preparar_dados.py continua a exportar apenas a amostra JSON.
 
 ## 5. Modelo em V e rastreabilidade
 
-O grupo adotou o Modelo em V. Nesta etapa, as regras da
-componente são relacionadas com testes unitários.
+O grupo adotou o Modelo em V. Nesta etapa, as regras da componente
+são relacionadas com testes unitários, um teste de integração local
+e verificações manuais com dados reais.
 
 | Requisito | Verificação | Resultado registado |
 |---|---|---|
@@ -274,9 +273,9 @@ Os resultados dos testes devem acompanhar as alterações de código.
 
 ## 10. Próximas etapas
 
-1. Analisar a qualidade de um histórico maior.
-2. Preparar resumos por hora e testes correspondentes.
-3. Integrar meteorologia.
-4. Definir o alvo energético e o horizonte de previsão.
-5. Treinar e avaliar os modelos.
+1. Recolher e validar meteorologia para a localização e período do no3.
+2. Cruzar meteorologia e resumos horários, respeitando os intervalos temporais representados por cada variável.
+3. Confirmar localizações, unidades, mudanças de sensores e anomalias antes de integrar os restantes nós.
+4. Continuar a recolha edefinir o alvo energético e o horizonte de previsão.
+5. Treinar e comparar os modelos quando existir consumo válido.
 6. Integrar e testar com a API e o dashboard.

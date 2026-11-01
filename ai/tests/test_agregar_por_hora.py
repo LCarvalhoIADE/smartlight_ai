@@ -195,3 +195,63 @@ def test_rejeita_lista_vazia():
     """Uma entrada vazia deve ser rejeitada, sem inventar resultados."""
     with pytest.raises(ValueError, match="lista"):
         agregar([])
+
+def test_conta_luz_raw_disponivel_incluindo_zero():
+    """Conta zero e um como disponíveis, mas exclui None."""
+    from copy import deepcopy
+
+    from ai.src.agregar_por_hora import agregar
+
+    # Três leituras fictícias na mesma hora, sem o campo opcional hora.
+    dados = [
+        {
+            "no_id": "no3",
+            "divisao": "teste",
+            "ts": 1700000000 + indice * 15,
+            "luz_raw": valor,
+            "luz_pct": None,
+            "presenca": 0,
+            "led_pct": 0,
+            "modo": "auto",
+        }
+        for indice, valor in enumerate([None, 0, 1])
+    ]
+    original = deepcopy(dados)
+
+    resultado = agregar(dados)
+
+    # Existem três leituras, mas apenas duas têm luminosidade disponível.
+    assert len(resultado) == 1
+    assert resultado[0]["numero_leituras"] == 3
+    assert resultado[0]["numero_leituras_luz_raw"] == 2
+    assert resultado[0]["numero_leituras_luz_pct"] == 0
+    assert resultado[0]["luz_pct_media"] is None
+
+    # A agregação não altera os dados de entrada.
+    assert dados == original
+
+
+def test_agrega_hora_sem_luz_raw():
+    """Mantém o resumo mesmo quando não existe luminosidade."""
+    from ai.src.agregar_por_hora import agregar
+
+    # A ausência de luminosidade não apaga a informação de presença
+    # e do comando enviado ao LED.
+    dados = [{
+        "no_id": "no3",
+        "divisao": "teste",
+        "ts": 1700000000,
+        "luz_raw": None,
+        "luz_pct": None,
+        "presenca": 1,
+        "led_pct": 100,
+        "modo": "auto",
+    }]
+
+    resultado = agregar(dados)
+
+    assert len(resultado) == 1
+    assert resultado[0]["numero_leituras"] == 1
+    assert resultado[0]["numero_leituras_luz_raw"] == 0
+    assert resultado[0]["presenca_proporcao"] == 1.0
+    assert resultado[0]["led_pct_medio"] == 100
