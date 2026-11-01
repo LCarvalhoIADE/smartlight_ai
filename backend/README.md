@@ -4,8 +4,8 @@ API em PHP que recebe as leituras dos nós e as disponibiliza ao dashboard e à 
 
 | Ficheiro | Função |
 |---|---|
-| `public/leituras.php` | `POST`: recebe uma leitura de um nó (cabeçalho `X-Token`, corpo JSON), valida-a e guarda-a. Ignora leituras repetidas. |
-| `public/ultimas.php` | `GET`: devolve as últimas leituras. Com a chave de administrador vê todos os nós, com o token de um nó só vê esse nó. |
+| `public/leituras.php` | `POST`: recebe uma leitura de um nó (cabeçalho `X-Token`, corpo JSON), valida-a e guarda-a. Ignora leituras repetidas. Aceita a corrente do LED (`corrente_ma`) nos nós com INA219. |
+| `public/ultimas.php` | `GET`: devolve as últimas leituras. Com a chave de administrador vê todos os nós, com o token de um nó só vê esse nó. Cada leitura inclui o tipo de sensor de luz do nó. |
 | `public/db.php` | Ligação à base de dados e resposta em JSON. As credenciais vêm de variáveis de ambiente. |
 | `Dockerfile` | Imagem `php:8.3-apache` com a extensão `pdo_mysql`. |
 
