@@ -125,3 +125,96 @@ def test_rejeita_lista_vazia():
     
     with pytest.raises(ValueError, match="lista"):
         preparar([])
+def test_prepara_leitura_sem_hora_e_com_luz_raw_nulo(leitura):
+    """Aceita hora ausente e luminosidade nula sem alterar a entrada."""
+
+    # Simula a estrutura do TSV: não existe o campo hora
+    # e pode faltar uma medição de luminosidade.
+    del leitura["hora"]
+    leitura["luz_raw"] = None
+
+    # Guarda uma cópia independente para verificar que a função
+    # não modifica os dados que recebeu.
+    dados = [leitura]
+    original = deepcopy(dados)
+
+    resultado = preparar(dados)
+
+    # As medições ausentes devem continuar como None.
+    # Não devem ser substituídas pelo valor zero.
+    assert resultado[0]["luz_raw"] is None
+    assert resultado[0]["luz_pct"] is None
+
+    # A saída mantém a coluna hora, mas sem inventar um valor.
+    assert resultado[0]["hora"] is None
+
+    # A data UTC continua a ser calculada a partir do timestamp.
+    assert resultado[0]["data_utc"] == "2023-11-14T22:13:20+00:00"
+
+    # A entrada mantém-se intacta, incluindo a ausência de hora.
+    assert dados == original
+    assert "hora" not in dados[0]
+
+
+def test_rejeita_coluna_luz_raw_em_falta(leitura):
+    """Distingue uma coluna em falta de uma medição ausente."""
+
+    # luz_raw=None é permitido, mas a coluna luz_raw deve existir.
+    # Removê-la significa que a estrutura está incompleta.
+    del leitura["luz_raw"]
+
+    with pytest.raises(ValueError, match="faltam campos"):
+        preparar([leitura])
+
+
+def test_importacao_e_preparacao_tsv(tmp_path):
+    """Verifica a integração entre importação e preparação."""
+
+    # Esta função só é necessária neste teste de integração.
+    from ai.src.importar_leituras import importar_tsv
+
+    # tmp_path é uma pasta temporária criada pelo pytest.
+    # O teste não utiliza nem modifica o histórico real.
+    caminho = tmp_path / "historico_teste.tsv"
+
+    # Cria duas leituras fictícias fora de ordem cronológica.
+    # \t separa os campos e \n separa as linhas.
+    # A leitura mais antiga tem luz_raw ausente.
+    caminho.write_text(
+        "no_id\tdivisao\tts\tluz_raw\tluz_pct\tpresenca\tled_pct\tmodo\n"
+        "no3\tteste\t1700000015\t1\tNULL\t1\t100\tauto\n"
+        "no3\tteste\t1700000000\tNULL\tNULL\t0\t0\tauto\n",
+        encoding="utf-8",
+    )
+
+    # Primeiro, importar os dados e converter os tipos.
+    importadas = importar_tsv(caminho)
+    original = deepcopy(importadas)
+
+    # Depois, validar e ordenar os dados importados.
+    preparadas = preparar(importadas)
+
+    # As duas leituras devem ser mantidas e ordenadas.
+    assert len(preparadas) == 2
+    assert [linha["ts"] for linha in preparadas] == [
+        1700000000,
+        1700000015,
+    ]
+
+    # A ausência de luminosidade é preservada.
+    assert preparadas[0]["luz_raw"] is None
+    assert preparadas[1]["luz_raw"] == 1.0
+    assert all(linha["luz_pct"] is None for linha in preparadas)
+
+    # O TSV não contém hora: a coluna fica nula na saída.
+    assert all(linha["hora"] is None for linha in preparadas)
+
+    # Confirmar a conversão temporal de ambas as leituras.
+    assert [linha["data_utc"] for linha in preparadas] == [
+        "2023-11-14T22:13:20+00:00",
+        "2023-11-14T22:13:35+00:00",
+    ]
+
+    # A preparação não altera os dados devolvidos pelo importador.
+    assert importadas == original
+    assert all("hora" not in linha for linha in importadas)
