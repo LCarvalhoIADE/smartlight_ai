@@ -22,7 +22,7 @@ if (!empty($cfg['exemplo'])) {
 
 $url = $cfg['url_ultimas'] . '?' . http_build_query(['chave' => $cfg['chave'], 'n' => 50]);
 $ch = curl_init($url);
-curl_setopt_arrai($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 6]);
+curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 6]);
 $corpo = curl_exec($ch);
 $codigo = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 curl_close($ch);
