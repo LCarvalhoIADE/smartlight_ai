@@ -326,9 +326,10 @@ Os resultados dos testes devem acompanhar as alterações de código.
 
 ## 10. Próximas etapas
 
-1. Recolher e validar meteorologia para a localização e período do no3.
-2. Cruzar meteorologia e resumos horários, respeitando os intervalos temporais representados por cada variável.
-3. Confirmar localizações, unidades, mudanças de sensores e anomalias antes de integrar os restantes nós.
-4. Continuar a recolha edefinir o alvo energético e o horizonte de previsão.
-5. Treinar e comparar os modelos quando existir consumo válido.
-6. Integrar e testar com a API e o dashboard.
+1. Usar pandas para analisar os 142 resumos horários do no3 e definir critérios de utilização por análise, considerando horas parciais, interrupções e medições ausentes.
+2. Confirmar a localização de cada nó, as unidades de luminosidade, as mudanças de sensores e as anomalias antes de integrar os restantes nós.
+3. Continuar a recolha e acordar com o grupo o consumo a prever, a respetiva unidade e a antecedência da previsão.
+4. Automatizar a recolha de meteorologia e guardar as previsões disponíveis no momento em que a IA fizer cada previsão de consumo.
+5. Quando existir um histórico de consumo válido, comparar a referência da mesma hora do dia anterior, a Regressão Linear e a Random Forest.
+Avaliar com MAE, separando treino e teste por ordem temporal.
+6. Acordar o formato das previsões com os responsáveis pela API e pelo dashboard e testar o envio, o armazenamento e a apresentação.
