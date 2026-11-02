@@ -18,21 +18,30 @@ alinhados com os requisitos gerais do projeto.
 
 | ID | Requisito | Estado |
 |---|---|---|
-| RF-IA-01 | Ler leituras de um ficheiro JSON local | Implementado |
+| RF-IA-01 | Ler leituras de JSON local ou TSV com seleção do nó | Implementado |
 | RF-IA-02 | Validar campos obrigatórios e regras de valores | Implementado parcialmente |
 | RF-IA-03 | Rejeitar duplicados por no_id, divisao e ts | Implementado |
 | RF-IA-04 | Ordenar leituras e acrescentar data_utc | Implementado |
 | RF-IA-05 | Exportar as leituras preparadas para CSV | Implementado |
-| RF-IA-06 | Sinalizar possíveis interrupções na recolha e produzir resumos por hora | Parcial: análise de intervalos implementada; resumos por hora pendentes |
-| RF-IA-07 | Obter meteorologia e associá-la por localização e hora | Planeado |
+| RF-IA-06 | Sinalizar possíveis interrupções e produzir resumos horários | Implementado para o no3; não comprova cobertura completa |
+| RF-IA-07 | Obter meteorologia e associá-la por localização e hora | Parcial: aquisição manual e cruzamento horário local do no3 implementados; automatização e restantes nós pendentes |
 | RF-IA-08 | Comparar referência do dia anterior, Regressão Linear e Random Forest | Planeado |
 | RF-IA-09 | Avaliar previsões com MAE | Planeado |
 | RF-IA-10 | Enviar previsões para a API do projeto | Planeado |
 
-RF-IA-02 verifica a presença dos nove campos, os nulos obrigatórios,
-o nó esperado, a divisão, o timestamp, a presença e os limites
-das percentagens. Ainda não valida todos os tipos e significados
-de luz_raw, modo e hora.
+RF-IA-02 exige oito campos comuns ao JSON e ao TSV.
+hora é opcional; luz_raw e luz_pct podem ser nulos.
+
+A preparação verifica o nó esperado, a divisão, o timestamp,
+a presença e os limites das percentagens.
+
+O importador TSV verifica a estrutura e converte os tipos,
+rejeitando luminosidade não numérica ou não finita.
+Valores negativos são preservados na importação para análise posterior.
+
+A validação continua parcial: as regras físicas de luz_raw,
+os valores permitidos de modo e a interpretação de hora ainda
+não estão completamente validados.
 
 ## 3. Requisitos não funcionais
 
@@ -71,41 +80,93 @@ Testes:
 - ai/tests/test_preparar_dados.py
 - ai/tests/test_analisar_qualidade.py
 
-Ambos os scripts preservam o JSON original.
-A validação permanece restrita ao nó no3.
-
 Agregação horária:
 - ai/src/agregar_por_hora.py
 - Reutiliza a validação da função preparar.
 - Agrupa por nó, divisão e hora UTC.
 - Calcula contagens, proporção de presença e médias de LED e luminosidade.
 - Preserva luminosidade nula quando não existem valores disponíveis.
-- Produz ai/data/processed/no3_por_hora.csv.
+- Por defeito, produz ai/data/processed/no3_historico_por_hora.csv.
+- Com --amostra, produz ai/data/processed/no3_por_hora.csv.
 
 Testes da agregação:
 - ai/tests/test_agregar_por_hora.py
 
+Histórico local:
+- ai/data/raw/leituras.tsv
+- Importado por ai/src/importar_leituras.py.
+- O importador permite selecionar o nó.
+- Os comandos de análise e agregação selecionam atualmente no3.
+- A análise e a agregação usam TSV por defeito e JSON com --amostra.
+- A agregação do histórico produz:
+  ai/data/processed/no3_historico_por_hora.csv.
+- A agregação com --amostra mantém:
+  ai/data/processed/no3_por_hora.csv.
+- numero_leituras_luz_raw indica quantos valores não nulos existem
+  em cada grupo, sem garantir validade física.
+
+Testes do importador:
+- ai/tests/test_importar_leituras.py
+
+Todos os scripts preservam os ficheiros originais.
+O main de preparar_dados.py continua a exportar apenas a amostra JSON.
+Preparação meteorológica:
+- ai/src/preparar_meteorologia.py
+- Lê o JSON local obtido manualmente da Open-Meteo.
+- Verifica unidades, tipos, limites e sequência horária em UTC.
+- Preserva valores nulos e os timestamps da fonte.
+- Produz ai/data/processed/no3_meteo_2026-10-24_2026-10-30_horario.csv.
+- A execução atual verifica o período específico de 24–30/10/2026.
+- Não processa a componente diária.
+
+Cruzamento meteorológico:
+- ai/src/cruzar_meteorologia.py
+- Reutiliza importação, agregação e preparação meteorológica em memória.
+- Utiliza as variáveis instantâneas no início da hora do resumo.
+- Utiliza precipitação e radiação do timestamp seguinte, que descrevem
+  a hora anterior da fonte.
+- Regista meteo_instante_utc e meteo_fim_intervalo_utc para rastreabilidade.
+- Rejeita horas necessárias em falta, duplicados e nós diferentes de no3.
+- Preserva resumos parciais e valores nulos.
+- Produz ai/data/processed/no3_historico_com_meteorologia.csv.
+
+Testes:
+- ai/tests/test_preparar_meteorologia.py
+- ai/tests/test_cruzar_meteorologia.py
+
+Os módulos meteorológicos não fazem pedidos de rede.
+A associação da localização ao no3 é manual.
+
 ## 5. Modelo em V e rastreabilidade
 
-O grupo adotou o Modelo em V. Nesta etapa, as regras da
-componente são relacionadas com testes unitários.
+O grupo adotou o Modelo em V. Nesta etapa, as regras da componente
+são relacionadas com testes unitários, um teste de integração local
+e verificações manuais com dados reais.
 
 | Requisito | Verificação | Resultado registado |
 |---|---|---|
-| RF-IA-01 | Execução com JSON real de 50 leituras | Execução bem-sucedida |
+| RF-IA-01 | Testes de importação TSV e execução com JSON e histórico real do no3 | Testes e execuções aprovados |
 | RF-IA-02 | Oito casos de valores inválidos, campo em falta e lista vazia | Testes aprovados |
 | RF-IA-03 | Rejeição de duplicados na preparação e na análise | Testes aprovados |
 | RF-IA-04 | Ordenação e conversão para UTC | Testes aprovados |
 | RF-IA-05 | Execução do script e geração do CSV | Verificação manual |
 | RF-IA-06 | Resumo de qualidade, intervalos, fronteira do alerta, configuração do limite, médias horárias, separação por hora/dia/divisão e tratamento de nulos | Testes aprovados; análise de qualidade e agregação horária implementadas |
+| RF-IA-07 | Validação meteorológica, alinhamento temporal, passagem de dia, preservação de nulos e rejeição de horas em falta | 46 casos automáticos aprovados e execução local com dados reais |
+
 | RNF-IA-02 | Preservação da entrada nas funções preparar e analisar | Testes aprovados |
 
-Resultado: 36 testes unitários aprovados.
-- 13 de preparação dos dados.
-- 13 de análise de qualidade.
-- 10 de agregação
+Resultado: 114 testes automáticos aprovados.
 
-Estas contagens incluem os casos dos testes parametrizados.
+- 27 de importação TSV.
+- 16 no ficheiro de preparação.
+- 13 de análise de qualidade.
+- 12 de agregação horária.
+- 31 de preparação meteorológica.
+- 15 de cruzamento meteorológico.
+
+As contagens incluem os casos parametrizados.
+Um dos testes de preparação verifica a integração entre importar_tsv
+e preparar. Os restantes verificam comportamentos das funções.
 
 Comando executado na raiz do repositório:
 
@@ -126,8 +187,9 @@ Não demonstra que todo o histórico do servidor está completo.
 Os testes não verificam ainda a integração com APIs,
 a precisão física dos sensores ou a qualidade das previsões.
 
-Os testes de integração, sistema e aceitação serão definidos
-à medida que as interfaces e os critérios forem acordados.
+Existe um teste de integração local entre importação e preparação.
+Os testes das interfaces externas, de sistema e de aceitação
+serão definidos quando os contratos e critérios forem acordados.
 
 Validação manual da agregação:
 - 50 leituras originaram um resumo para 2026-10-26T23:00:00+00:00.
@@ -138,6 +200,39 @@ Validação manual da agregação:
 
 Estes resultados descrevem a amostra, não uma hora completa.
 Não foi calculado consumo energético.
+
+Validação manual do histórico do no3 em 01/11/2026:
+
+- 33 190 leituras importadas e preparadas.
+- Início UTC: 2026-10-24T14:48:44+00:00.
+- Fim UTC: 2026-10-30T11:10:17+00:00.
+- 2 519 valores nulos em luz_raw.
+- 33 190 valores nulos em luz_pct.
+- hora nula nas 33 190 leituras porque não existe no TSV.
+- Quatro intervalos superiores a 30 segundos:
+  226, 31, 93 e 47 segundos, por ordem cronológica.
+- 142 resumos horários produzidos.
+- 30 671 leituras com luz_raw disponível.
+- CSV do histórico confirmado como ignorado pelo Git.
+- Análise da amostra JSON também executada com sucesso.
+
+Os 142 resumos representam horas com alguma leitura.
+Não representam 142 horas completas nem cobertura contínua.
+Validação manual da meteorologia e do cruzamento em 01/11/2026:
+
+- JSON meteorológico em GMT, com desvio UTC de zero segundos.
+- 168 horas entre 2026-10-24T00:00:00+00:00
+  e 2026-10-30T23:00:00+00:00.
+- Dez variáveis horárias, sem valores nulos nesta resposta.
+- 142 resumos do ESP32 originaram 142 linhas cruzadas.
+- Primeira hora cruzada: 2026-10-24T14:00:00+00:00.
+- Última hora cruzada: 2026-10-30T11:00:00+00:00.
+- CSV meteorológico e CSV cruzado confirmados como ignorados pelo Git.
+- Suite completa: 114 testes aprovados.
+
+Esta execução não valida a precisão física da meteorologia,
+a qualidade de previsões energéticas ou uma integração automática
+com serviços externos.
 
 ## 6. Decisões técnicas
 
@@ -150,6 +245,20 @@ Não foi calculado consumo energético.
 - Aguardar consumo válido antes do treino preditivo.
 - Comparar modelos com uma referência simples.
 - Usar apenas informação disponível no momento da previsão.
+- Preservar luz_raw nulo e distinguir ausência de coluna de ausência de valor.
+- Manter hora opcional e calcular data_utc a partir de ts.
+- Separar os CSV da amostra e do histórico.
+- Validar primeiro o no3 e depois integrar os restantes nós.
+- Documentar anomalias sem assumir que as respetivas regras de tratamento já estão implementadas.
+- Manter separados os timestamps originais da meteorologia e a hora
+  do resumo do ESP32.
+- Para o intervalo [10:00, 11:00), utilizar variáveis instantâneas
+  das 10:00 e precipitação/radiação com timestamp das 11:00.
+- Usar o conjunto cruzado atual para análise histórica.
+- Na futura avaliação preditiva, utilizar apenas informação
+  disponível no instante de emissão da previsão.
+- Não interpretar radiação exterior em W/m² como luminosidade
+  interior em lux nem como consumo elétrico.
 
 ## 7. Dependências e responsabilidades
 
@@ -166,18 +275,42 @@ sem ligação direta ao MySQL.
 
 O endpoint de envio das previsões, a autenticação e o formato
 do JSON ainda serão acordados com os responsáveis.
+Luís já disponibilizou uma exportação TSV com 118 492 registos.
+Esta entrega permite trabalhar localmente, mas não comprova que
+a BD definitiva ou a API de previsões estejam concluídas.
+
+Continuam pendentes:
+- Localizações aproximadas dos restantes nós e registo de eventuais mudanças de localização; a localização do no3 já foi usada no pedido.
+- Sensor, unidade e significado de luz_raw por período.
+- Fórmula de luz_pct.
+- Confirmação da transição de sensor do no1.
+- Explicação da luminosidade idêntica nas duas divisões do no2.
+- Período exato de funcionamento incorreto do PIR do no2.
+- Estrutura e unidades do futuro alvo energético.
 
 ## 8. Riscos e limitações
 
 | Risco ou limitação | Tratamento previsto |
 |---|---|
-| Amostra de apenas 50 leituras | Obter um histórico maior antes de avaliar modelos |
+| Histórico curto e heterogéneo | Continuar a recolha e distinguir nós, sensores e períodos antes de avaliar modelos |
 | Falta de consumo energético válido | Aguardar medição ou estimativa calibrada e identificada |
 | Falhas de recolha | Medir intervalos e sinalizar períodos incompletos |
 | Mudanças de sensores | Registar datas e distinguir os períodos de recolha |
 | Diferenças de fusos horários | Uniformizar instantes em UTC |
 | Uso de informação futura no treino ou avaliação | Separação temporal e controlo das variáveis disponíveis |
 | Interfaces ainda indefinidas | Acordar o contrato da API antes da integração |
+
+Informações fornecidas pelo Luís para interpretação do histórico:
+
+- Valores negativos de luminosidade indicam leituras inválidas.
+- no1 mudou de luminosidade digital para lux em 24/10, aproximadamente
+  à hora de almoço; o instante exato carece de confirmação.
+- O PIR da sala do no2 mantinha a presença praticamente constante.
+- no2 esteve parado entre 23 e 24/10 e deixou de recolher em 27/10.
+- no1 esteve desligado em 29/10, aproximadamente entre 01:39 e 07:51.
+
+Estas informações orientam a análise. O tratamento automático de todas
+estas situações ainda não está implementado.
 
 ## 9. Gestão de configuração
 
@@ -193,9 +326,9 @@ Os resultados dos testes devem acompanhar as alterações de código.
 
 ## 10. Próximas etapas
 
-1. Analisar a qualidade de um histórico maior.
-2. Preparar resumos por hora e testes correspondentes.
-3. Integrar meteorologia.
-4. Definir o alvo energético e o horizonte de previsão.
-5. Treinar e avaliar os modelos.
+1. Recolher e validar meteorologia para a localização e período do no3.
+2. Cruzar meteorologia e resumos horários, respeitando os intervalos temporais representados por cada variável.
+3. Confirmar localizações, unidades, mudanças de sensores e anomalias antes de integrar os restantes nós.
+4. Continuar a recolha edefinir o alvo energético e o horizonte de previsão.
+5. Treinar e comparar os modelos quando existir consumo válido.
 6. Integrar e testar com a API e o dashboard.
