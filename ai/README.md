@@ -23,8 +23,12 @@ respeitando a ordem temporal dos dados de treino e teste.
 - Preparação compatível com hora ausente e luminosidade nula.
 - Análise de nulos, intervalos e possíveis interrupções.
 - Agregação por hora UTC e divisão: 142 resumos do histórico do no3.
-- 68 testes automáticos aprovados.
-- Sem cálculo de consumo, treino de modelos ou integração meteorológica.
+- Meteorologia histórica da Open-Meteo obtida manualmente em JSON.
+- 168 horas meteorológicas preparadas para 24–30/10/2026.
+- Cruzamento local com os 142 resumos horários do no3.
+- 114 testes automáticos aprovados.
+- Sem cálculo de consumo ou treino de modelos.
+- Aquisição meteorológica automática pela API ainda não implementada.
 
 ## Organização
 
@@ -87,6 +91,21 @@ Executar todos os testes:
 ```powershell
 python -m pytest ai/tests -q
 ```
+Preparar a meteorologia horária do JSON local:
+
+```powershell
+python -m ai.src.preparar_meteorologia
+```
+
+Cruzar o histórico do no3 com a meteorologia:
+
+```powershell
+python -m ai.src.cruzar_meteorologia
+```
+
+O cruzamento lê os ficheiros originais e reutiliza as funções de
+preparação em memória. Não depende da execução prévia dos comandos
+que exportam os CSV intermédios.
 
 ## Entrada e saída
 
@@ -113,6 +132,18 @@ O instante UTC é sempre calculado a partir de ts.
 
 NULL e células vazias nos campos de luminosidade do TSV são convertidos
 para None. No CSV, None é representado por uma célula vazia.
+Meteorologia original:
+- ai/data/raw/no3_meteo_2026-10-24_2026-10-30.json
+
+Meteorologia horária preparada:
+- ai/data/processed/no3_meteo_2026-10-24_2026-10-30_horario.csv
+
+Histórico cruzado:
+- ai/data/processed/no3_historico_com_meteorologia.csv
+
+O cruzamento utiliza leituras.tsv e o JSON meteorológico.
+Os dados diários permanecem no JSON original e ainda não são validados
+nem utilizados no cruzamento.
 
 ## Limitações atuais
 
@@ -121,7 +152,14 @@ para None. No CSV, None é representado por uma célula vazia.
 - Os valores nulos são preservados, ficando vazios no CSV.
 - led_pct indica a intensidade comandada ao LED, não energia medida.
 - Os dados atualmente processados não contêm medições energéticas.
-- Ainda não existe integração meteorológica.
+- A integração meteorológica é local e histórica, limitada ao no3.
+- A correspondência entre o JSON meteorológico e a localização do no3
+  é configurada manualmente; o código não verifica essa localização.
+- Meteorologia histórica não representa uma previsão disponível
+  antecipadamente. O conjunto cruzado destina-se à análise do passado.
+- Os dados diários ainda não foram validados nem integrados.
+- Cruzar uma hora parcial do ESP32 com meteorologia não completa
+  as leituras em falta.
 - As médias horárias não são ponderadas pelo tempo.
 - Horas sem leituras não são preenchidas.
 - Um resumo horário não comprova que a hora está completa.
@@ -158,13 +196,14 @@ Nesta componente, os testes automáticos verificam:
 - Configuração do limite e rejeição de limites inválidos.
 - Preservação da entrada durante a análise.
 
-Distribuição dos 68 casos de teste:
+Distribuição dos 114 casos de teste:
 
 - 27 de importação TSV.
-- 16 no ficheiro de preparação, incluindo um teste de integração
-  entre importação e preparação.
+- 16 no ficheiro de preparação, incluindo um teste de integração entre importação e preparação.
 - 13 de análise de qualidade.
 - 12 de agregação horária.
+- 31 de preparação meteorológica.
+- 15 de cruzamento meteorológico.
 
 Estas contagens incluem os casos parametrizados.
 
@@ -174,6 +213,12 @@ hora opcional e contagem de luz_raw disponível.
 
 A seleção das fontes nos comandos e a geração do CSV do histórico
 foram também verificadas manualmente.
+Os testes meteorológicos verificam unidades, tipos, limites,
+preservação de nulos, UTC e sequência horária.
+
+Os testes do cruzamento verificam alinhamento temporal, passagem
+da meia-noite, preservação das entradas e rejeição de duplicados,
+horas necessárias em falta e nós diferentes de no3.
 
 ## Próximas etapas
 

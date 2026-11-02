@@ -24,7 +24,7 @@ alinhados com os requisitos gerais do projeto.
 | RF-IA-04 | Ordenar leituras e acrescentar data_utc | Implementado |
 | RF-IA-05 | Exportar as leituras preparadas para CSV | Implementado |
 | RF-IA-06 | Sinalizar possíveis interrupções e produzir resumos horários | Implementado para o no3; não comprova cobertura completa |
-| RF-IA-07 | Obter meteorologia e associá-la por localização e hora | Planeado |
+| RF-IA-07 | Obter meteorologia e associá-la por localização e hora | Parcial: aquisição manual e cruzamento horário local do no3 implementados; automatização e restantes nós pendentes |
 | RF-IA-08 | Comparar referência do dia anterior, Regressão Linear e Random Forest | Planeado |
 | RF-IA-09 | Avaliar previsões com MAE | Planeado |
 | RF-IA-10 | Enviar previsões para a API do projeto | Planeado |
@@ -110,6 +110,32 @@ Testes do importador:
 
 Todos os scripts preservam os ficheiros originais.
 O main de preparar_dados.py continua a exportar apenas a amostra JSON.
+Preparação meteorológica:
+- ai/src/preparar_meteorologia.py
+- Lê o JSON local obtido manualmente da Open-Meteo.
+- Verifica unidades, tipos, limites e sequência horária em UTC.
+- Preserva valores nulos e os timestamps da fonte.
+- Produz ai/data/processed/no3_meteo_2026-10-24_2026-10-30_horario.csv.
+- A execução atual verifica o período específico de 24–30/10/2026.
+- Não processa a componente diária.
+
+Cruzamento meteorológico:
+- ai/src/cruzar_meteorologia.py
+- Reutiliza importação, agregação e preparação meteorológica em memória.
+- Utiliza as variáveis instantâneas no início da hora do resumo.
+- Utiliza precipitação e radiação do timestamp seguinte, que descrevem
+  a hora anterior da fonte.
+- Regista meteo_instante_utc e meteo_fim_intervalo_utc para rastreabilidade.
+- Rejeita horas necessárias em falta, duplicados e nós diferentes de no3.
+- Preserva resumos parciais e valores nulos.
+- Produz ai/data/processed/no3_historico_com_meteorologia.csv.
+
+Testes:
+- ai/tests/test_preparar_meteorologia.py
+- ai/tests/test_cruzar_meteorologia.py
+
+Os módulos meteorológicos não fazem pedidos de rede.
+A associação da localização ao no3 é manual.
 
 ## 5. Modelo em V e rastreabilidade
 
@@ -125,14 +151,18 @@ e verificações manuais com dados reais.
 | RF-IA-04 | Ordenação e conversão para UTC | Testes aprovados |
 | RF-IA-05 | Execução do script e geração do CSV | Verificação manual |
 | RF-IA-06 | Resumo de qualidade, intervalos, fronteira do alerta, configuração do limite, médias horárias, separação por hora/dia/divisão e tratamento de nulos | Testes aprovados; análise de qualidade e agregação horária implementadas |
+| RF-IA-07 | Validação meteorológica, alinhamento temporal, passagem de dia, preservação de nulos e rejeição de horas em falta | 46 casos automáticos aprovados e execução local com dados reais |
+
 | RNF-IA-02 | Preservação da entrada nas funções preparar e analisar | Testes aprovados |
 
-Resultado: 68 testes automáticos aprovados.
+Resultado: 114 testes automáticos aprovados.
 
 - 27 de importação TSV.
 - 16 no ficheiro de preparação.
 - 13 de análise de qualidade.
 - 12 de agregação horária.
+- 31 de preparação meteorológica.
+- 15 de cruzamento meteorológico.
 
 As contagens incluem os casos parametrizados.
 Um dos testes de preparação verifica a integração entre importar_tsv
@@ -188,6 +218,21 @@ Validação manual do histórico do no3 em 01/11/2026:
 
 Os 142 resumos representam horas com alguma leitura.
 Não representam 142 horas completas nem cobertura contínua.
+Validação manual da meteorologia e do cruzamento em 01/11/2026:
+
+- JSON meteorológico em GMT, com desvio UTC de zero segundos.
+- 168 horas entre 2026-10-24T00:00:00+00:00
+  e 2026-10-30T23:00:00+00:00.
+- Dez variáveis horárias, sem valores nulos nesta resposta.
+- 142 resumos do ESP32 originaram 142 linhas cruzadas.
+- Primeira hora cruzada: 2026-10-24T14:00:00+00:00.
+- Última hora cruzada: 2026-10-30T11:00:00+00:00.
+- CSV meteorológico e CSV cruzado confirmados como ignorados pelo Git.
+- Suite completa: 114 testes aprovados.
+
+Esta execução não valida a precisão física da meteorologia,
+a qualidade de previsões energéticas ou uma integração automática
+com serviços externos.
 
 ## 6. Decisões técnicas
 
@@ -204,8 +249,16 @@ Não representam 142 horas completas nem cobertura contínua.
 - Manter hora opcional e calcular data_utc a partir de ts.
 - Separar os CSV da amostra e do histórico.
 - Validar primeiro o no3 e depois integrar os restantes nós.
-- Documentar anomalias sem assumir que as respetivas regras de tratamento
-  já estão implementadas.
+- Documentar anomalias sem assumir que as respetivas regras de tratamento já estão implementadas.
+- Manter separados os timestamps originais da meteorologia e a hora
+  do resumo do ESP32.
+- Para o intervalo [10:00, 11:00), utilizar variáveis instantâneas
+  das 10:00 e precipitação/radiação com timestamp das 11:00.
+- Usar o conjunto cruzado atual para análise histórica.
+- Na futura avaliação preditiva, utilizar apenas informação
+  disponível no instante de emissão da previsão.
+- Não interpretar radiação exterior em W/m² como luminosidade
+  interior em lux nem como consumo elétrico.
 
 ## 7. Dependências e responsabilidades
 
@@ -227,7 +280,7 @@ Esta entrega permite trabalhar localmente, mas não comprova que
 a BD definitiva ou a API de previsões estejam concluídas.
 
 Continuam pendentes:
-- Localização aproximada de cada nó.
+- Localizações aproximadas dos restantes nós e registo de eventuais mudanças de localização; a localização do no3 já foi usada no pedido.
 - Sensor, unidade e significado de luz_raw por período.
 - Fórmula de luz_pct.
 - Confirmação da transição de sensor do no1.
