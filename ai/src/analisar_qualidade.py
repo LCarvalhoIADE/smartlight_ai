@@ -1,5 +1,9 @@
 """
-Analisa a qualidade de uma amostra de leituras do nó no3.
+Analisa a qualidade das leituras do nó no3.
+
+Permite analisar:
+- O histórico TSV, por defeito.
+- A amostra JSON, através da opção --amostra.
 
 Apresenta:
 - Número de leituras e período abrangido.
@@ -11,27 +15,29 @@ Não altera os dados originais, não preenche falhas
 e não calcula consumo energético.
 """
 
+import argparse
 import json
 from collections import defaultdict
 
-# Reutilizamos os caminhos, campos e validações do script anterior.
+# Reutilizamos o importador TSV e as validações já testadas.
+from ai.src.importar_leituras import importar_tsv
 from ai.src.preparar_dados import AI_DIR, CAMPOS, preparar
 
 
 def analisar(dados, limite_intervalo=30):
-    """
-    Valida as leituras e devolve um dicionário com o resumo.
+    """Valida as leituras e devolve um dicionário com o resumo.
 
     Parâmetros:
-        dados: lista de leituras obtidas do JSON.
+        dados: lista de leituras obtidas do JSON ou do importador TSV.
         limite_intervalo: intervalo máximo, em segundos, sem alerta.
 
     Resultado:
         Dicionário com totais, datas UTC, nulos e análise por divisão.
 
-    Limitação:
-        A função preparar mantém a validação restrita ao nó no3.
-        Dados inválidos ou duplicados interrompem a análise com ValueError.
+    Limitações:
+        A análise utiliza preparar com o nó no3 por defeito.
+        Erros identificados pela validação interrompem a análise.
+        Os testes não comprovam a precisão física dos sensores.
     """
 
     # O limite deve ser um número positivo e finito.
@@ -43,7 +49,7 @@ def analisar(dados, limite_intervalo=30):
             "O limite do intervalo deve ser positivo e finito."
         )
 
-    # A validação existente cria novas linhas e ordena-as pelo timestamp.
+    # A validação cria novas linhas e ordena-as pelo timestamp.
     # A lista original recebida pela função permanece inalterada.
     leituras = preparar(dados)
 
@@ -71,9 +77,9 @@ def analisar(dados, limite_intervalo=30):
             intervalo = atual["ts"] - anterior["ts"]
             intervalos.append(intervalo)
 
-            # A recolha prevista ocorre aproximadamente a cada 15 segundos.
-            # Mais de 30 segundos gera um alerta para investigar.
+            # Mais de 30 segundos gera um alerta com o limite padrão.
             # Exatamente 30 segundos não gera alerta.
+            # Este limite pode ser alterado ao chamar analisar().
             if intervalo > limite_intervalo:
                 alertas.append({
                     "inicio_utc": anterior["data_utc"],
@@ -94,8 +100,9 @@ def analisar(dados, limite_intervalo=30):
             "alertas": alertas,
         })
 
-    # Contamos os valores None de cada campo.
-    # A validação anterior só permite nulos no campo luz_pct.
+    # Contamos os valores None de cada campo da saída.
+    # luz_raw e luz_pct podem não ter medição.
+    # hora fica None quando não existe na origem, como acontece no TSV.
     nulos = {
         campo: sum(linha[campo] is None for linha in leituras)
         for campo in CAMPOS
@@ -114,22 +121,51 @@ def analisar(dados, limite_intervalo=30):
 
 
 def main():
-    """Lê a amostra local e apresenta o resumo no terminal."""
+    """Lê a fonte escolhida e apresenta o resumo no terminal."""
 
-    # AI_DIR aponta para a pasta ai, definida no script de preparação.
-    origem = AI_DIR / "data/raw/no3_amostra.json"
+    # argparse faz parte do Python: não é necessário instalar bibliotecas.
+    # A opção --amostra permite continuar a analisar o JSON inicial.
+    argumentos = argparse.ArgumentParser(
+        description="Analisa a qualidade das leituras do no3."
+    )
+    argumentos.add_argument(
+        "--amostra",
+        action="store_true",
+        help="Analisar a amostra JSON em vez do histórico TSV.",
+    )
+    opcoes = argumentos.parse_args()
 
-    # utf-8-sig permite ler UTF-8 com ou sem a marca inicial BOM,
-    # que pode estar presente em ficheiros guardados no Windows.
-    dados = json.loads(origem.read_text(encoding="utf-8-sig"))
+    if opcoes.amostra:
+        # Mantemos o acesso à amostra original de 50 leituras.
+        origem = AI_DIR / "data" / "raw" / "no3_amostra.json"
 
+        # utf-8-sig aceita UTF-8 com ou sem a marca inicial BOM.
+        dados = json.loads(origem.read_text(encoding="utf-8-sig"))
+    else:
+        # Por defeito, usamos o histórico recebido do Luís.
+        origem = AI_DIR / "data" / "raw" / "leituras.tsv"
+
+        # O importador seleciona apenas no3 e converte os tipos,
+        # incluindo NULL para None nos campos de luminosidade.
+        dados = importar_tsv(origem, no_esperado="no3")
+
+    # A mesma função analisa ambas as fontes.
     # Usa o limite padrão de 30 segundos.
     resumo = analisar(dados)
 
+    print(f"Fonte: {origem.name}")
     print(f"Total de leituras: {resumo['total']}")
     print(f"Início UTC: {resumo['inicio_utc']}")
     print(f"Fim UTC: {resumo['fim_utc']}")
     print(f"Valores nulos: {resumo['nulos']}")
+
+    if not opcoes.amostra:
+        # A ausência de hora é uma característica do formato TSV.
+        # Não significa que falte o instante da leitura: temos ts.
+        print(
+            "Nota: hora não existe no TSV e fica nula na preparação. "
+            "As datas UTC são calculadas a partir de ts."
+        )
 
     # Apresentamos separadamente os resultados de cada nó e divisão.
     for grupo in resumo["grupos"]:
@@ -163,15 +199,16 @@ def main():
             )
 
     # A ausência de alertas não prova que todo o histórico está completo.
-    # Só analisámos os intervalos internos da amostra disponível.
+    # Só analisámos os intervalos internos das leituras disponíveis.
     print(
         "\nOs alertas indicam possíveis interrupções, "
         "não perdas confirmadas."
     )
     print(
-        "Análise limitada ao período da amostra. "
+        "Análise limitada ao período dos dados disponíveis. "
         "Dados originais preservados."
     )
+    print("Nenhum ficheiro de saída criado.")
 
 
 # Executa main apenas quando este módulo é iniciado diretamente.
