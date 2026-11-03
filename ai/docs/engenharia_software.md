@@ -320,6 +320,23 @@ Informações fornecidas pelo Luís para interpretação do histórico:
 Estas informações orientam a análise. O tratamento automático de todas
 estas situações ainda não está implementado.
 
+Ocorrência observada em 27/10/2026
+
+Segundo o responsável pelo servidor, uma manutenção deixou a plataforma
+indisponível entre as 18h33 e depois das 20h00. O fuso horário deste
+relato ficou por confirmar. Os nós no1 e no3 guardaram as leituras em
+memória e enviaram-nas após a reposição do serviço. O responsável
+confirmou a continuidade dos registos na base de dados para ambos os nós.
+O no2 estava desligado e ficou fora desta verificação.
+
+No histórico do no3, as horas iniciadas às 19h e às 20h UTC contêm
+180 leituras cada, com intervalos internos de 20 a 21 segundos.
+Ambas foram mantidas na análise. A causa desta cadência ficou por confirmar.
+
+A fila em RAM tem capacidade para 5 760 leituras, o equivalente a
+24 horas à cadência de 15 segundos. Um reinício ou corte de alimentação
+apaga as leituras que ainda aguardam envio.
+
 ## 9. Gestão de configuração
 
 Repositório: https://github.com/LCarvalhoIADE/smartlight_ai
