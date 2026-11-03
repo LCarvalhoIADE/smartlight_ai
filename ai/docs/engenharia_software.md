@@ -234,6 +234,14 @@ Esta execução não valida a precisão física da meteorologia,
 a qualidade de previsões energéticas ou uma integração automática
 com serviços externos.
 
+No dia 27/10/2026, o nó `no3` apresentou intervalos de 15, 16 e 20 segundos durante a hora iniciada às 18h UTC.
+
+Nas duas horas seguintes, foram registadas 180 leituras por hora, com intervalos internos de 20 a 21 segundos.
+
+Por este motivo, uma contagem inferior à mediana de 238 leituras por hora, por si só, é insuficiente para classificar uma hora como incompleta.
+
+Os resumos horários foram mantidos. A causa da alteração da frequência de recolha continua por confirmar.
+
 ## 6. Decisões técnicas
 
 - Usar ficheiros locais enquanto a integração definitiva não existe.
