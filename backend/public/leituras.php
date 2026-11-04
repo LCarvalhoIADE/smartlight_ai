@@ -26,11 +26,11 @@ $luz_raw = isset($amb['luz_raw']) ? (int)$amb['luz_raw'] : null;
 $luz_pct = isset($amb['luz_pct']) ? (int)$amb['luz_pct'] : null;
 if ($luz_pct !== null && ($luz_pct < 0 || $luz_pct > 100)) resp(422, ['erro' => 'luz_pct fora de 0..100']);
 
-$ins = $pdo->prepare('INSERT INTO leituras (no_id, boot_id, seq, divisao, ts, luz_raw, luz_pct, presenca, led_pct, corrente_ma, modo)
-                      VALUES (?,?,?,?,?,?,?,?,?,?,?)');
-$novas = 0; $dups = 0;
+$linhas = [];
 foreach ($j['divisoes'] as $d) {
+    if (!is_array($d)) resp(422, ['erro' => 'divisao invalida']);
     $nome = $d['id'] ?? 'sala';
+    if (!is_string($nome) || !preg_match('/^.{1,32}$/su', $nome)) resp(422, ['erro' => 'nome da divisao invalido']);
     $pres = (int)(!empty($d['presenca']));
     $led  = (int)($d['led_pct'] ?? 0);
     $modo = (string)($d['modo'] ?? 'auto');
@@ -38,6 +38,13 @@ foreach ($j['divisoes'] as $d) {
     $corr = isset($d['corrente_ma']) && is_numeric($d['corrente_ma']) ? round((float)$d['corrente_ma'], 1) : null;
     if ($corr !== null && ($corr < 0 || $corr > 1000)) resp(422, ['erro' => 'corrente_ma fora de 0..1000']);
     if ($led < 0 || $led > 100 || !in_array($modo, ['auto', 'manual', 'off'], true)) resp(422, ['erro' => 'divisao invalida']);
+    $linhas[] = [$nome, $pres, $led, $corr, $modo];
+}
+
+$ins = $pdo->prepare('INSERT INTO leituras (no_id, boot_id, seq, divisao, ts, luz_raw, luz_pct, presenca, led_pct, corrente_ma, modo)
+                      VALUES (?,?,?,?,?,?,?,?,?,?,?)');
+$novas = 0; $dups = 0;
+foreach ($linhas as [$nome, $pres, $led, $corr, $modo]) {
     try {
         $ins->execute([$j['no_id'], $j['boot_id'], $j['seq'], $nome, $j['ts'], $luz_raw, $luz_pct, $pres, $led, $corr, $modo]);
         $novas++;
