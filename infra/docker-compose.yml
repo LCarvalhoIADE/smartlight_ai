@@ -20,6 +20,7 @@ services:
       DB_USER: smartlight
       DB_PASS: ${DB_PASS}
       ADMIN_KEY: ${ADMIN_KEY}
+      LEITURA_KEY: ${LEITURA_KEY}
     volumes:
       - ../backend/public:/var/www/html:ro
     depends_on:
