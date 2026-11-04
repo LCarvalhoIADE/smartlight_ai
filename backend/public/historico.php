@@ -1,6 +1,6 @@
 <?php
 // Devolve as leituras de um nó entre duas datas (de e ate, em segundos Unix UTC), por omissão as últimas 24 horas.
-// Aceita a chave de administrador ou o token do próprio nó. Responde com os dados do nó e a lista de leituras.
+// Aceita a chave de administrador, a chave de leitura ou o token do próprio nó. Responde com os dados do nó e a lista de leituras.
 require __DIR__ . '/db.php';
 $no = $_GET['no_id'] ?? '';
 if ($no === '') resp(422, ['erro' => 'falta o parametro no_id']);
@@ -8,8 +8,11 @@ $pdo = ligar();
 $st = $pdo->prepare('SELECT no_id, token, descricao, sensor_luz, latitude, longitude, fuso FROM nos WHERE no_id = ?');
 $st->execute([$no]);
 $n = $st->fetch();
-$chave = getenv('ADMIN_KEY');
-$admin = $chave && hash_equals($chave, $_GET['chave'] ?? '');
+$admin = false;
+foreach (['ADMIN_KEY', 'LEITURA_KEY'] as $v) {
+    $k = getenv($v);
+    if ($k && hash_equals($k, $_GET['chave'] ?? '')) $admin = true;
+}
 if (!$admin) {
     $tok = $_GET['token'] ?? '';
     if ($tok === '' || !$n || !hash_equals($n['token'], $tok)) resp(403, ['erro' => 'sem acesso']);
