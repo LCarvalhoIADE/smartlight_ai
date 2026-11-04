@@ -22,9 +22,9 @@ API em PHP que recebe as leituras dos nós e as disponibiliza ao dashboard e à 
 
 ## Consulta de leituras
 
-Os dois pedidos aceitam a chave de administrador (`chave`) ou o token do próprio nó (`no_id` e `token`).
+Os dois pedidos aceitam uma chave (`chave`), que pode ser a de administrador ou a de leitura, ou então o token do próprio nó (`no_id` e `token`). As duas chaves dão acesso a todos os nós e só permitem consultar.
 
-`ultimas.php`
+### `ultimas.php`
 
 | Parâmetro | Significado |
 |---|---|
@@ -32,7 +32,7 @@ Os dois pedidos aceitam a chave de administrador (`chave`) ou o token do própri
 | `n` | Número de leituras, 20 por omissão e 200 no máximo |
 | `por_divisao` | Com o valor `1` devolve uma leitura por nó e divisão, a última guardada, e ignora `n` |
 
-`historico.php`
+### `historico.php`
 
 | Parâmetro | Significado |
 |---|---|
@@ -52,5 +52,5 @@ A resposta tem os campos `no` (`no_id`, `descricao`, `sensor_luz`, `latitude`, `
 |---|---|
 | 200 | Pedido aceite |
 | 403 | Sem chave de administrador nem token válido do nó |
-| 404 | Nó não encontrado (`historico.php`, só com a chave de administrador) |
+| 404 | Nó não encontrado (`historico.php`, com uma chave válida) |
 | 422 | Parâmetro em falta ou inválido, por exemplo `de` maior que `ate` |
