@@ -1,12 +1,15 @@
 <?php
-// Devolve as últimas leituras. Com a chave de administrador vê todos os nós e com o token de um nó só vê esse nó.
+// Devolve as últimas leituras. Com a chave de administrador ou de leitura vê todos os nós e com o token de um nó só vê esse nó.
 // Com por_divisao=1 devolve só a última leitura de cada divisão.
 require __DIR__ . '/db.php';
 $n = max(1, min(200, (int)($_GET['n'] ?? 20)));
 $pdo = ligar();
 $no = $_GET['no_id'] ?? '';
-$chave = getenv('ADMIN_KEY');
-$admin = $chave && hash_equals($chave, $_GET['chave'] ?? '');
+$admin = false;
+foreach (['ADMIN_KEY', 'LEITURA_KEY'] as $v) {
+    $k = getenv($v);
+    if ($k && hash_equals($k, $_GET['chave'] ?? '')) $admin = true;
+}
 if (!$admin) {
     $tok = $_GET['token'] ?? '';
     if ($no === '' || $tok === '') resp(403, ['erro' => 'sem acesso']);
