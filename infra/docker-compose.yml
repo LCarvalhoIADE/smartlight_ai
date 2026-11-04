@@ -11,7 +11,7 @@ services:
     volumes:
       - dbdata:/var/lib/mysql
       - ../database/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
-    # sem "ports": a base de dados não fica exposta à Internet
+      # a base de dados não tem ports e por isso não fica exposta à Internet
   web:
     build: ../backend
     restart: unless-stopped
