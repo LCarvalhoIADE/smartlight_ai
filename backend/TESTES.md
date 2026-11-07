@@ -44,26 +44,27 @@ Níveis: **U** unitário (um ficheiro da API isolado), **I** integração (nó, 
 | T34 | 04/11/2026 | RF-S04 | U | `POST` a `leituras.php` com o token do no1 e uma divisão com o nome de 33 caracteres | Resposta 422 e nada guardado | 422, `{"erro":"nome da divisao invalido"}`. Antes da correção do `leituras.php` este pedido dava erro 500 |
 | T35 | 04/11/2026 | RF-S04 | U | `POST` com duas divisões em que a primeira é válida (`sala`) e a segunda tem `led_pct` igual a 150 | Resposta 422 e nenhuma das divisões guardada | 422, `{"erro":"divisao invalida"}`. A contagem de leituras desse `boot_id` na base de dados é 0. Antes da correção, a primeira divisão ficava guardada |
 | T36 | 04/11/2026 | RF-S02 | S | Depois de instalar o `leituras.php` novo, tempo desde a última leitura de cada divisão ativa | Leituras recentes nos quatro nós | 2 a 14 s no no1, no2, no3 e no4 |
+| T37 | 04/11/2026 | RF-S17 | I | `GET` a `nos.php` com a chave de leitura e depois sem chave | Lista dos 4 nós com `fuso`, `pais`, `latitude` e `longitude` com a chave e resposta 403 sem ela | Os 4 nós com os campos esperados (no2 com `Europe/Zurich` e `CH`). Sem chave, 403 `sem acesso` |
 
 ## Testes por fazer
 
 | ID | Requisito | Nível | Procedimento | Resultado esperado |
 |---|---|---|---|---|
-| T37 | RF-S01 | U | `POST` a `leituras.php` com um token errado | Resposta 401 e nada guardado |
-| T38 | RF-S04 | U | `POST` com `led_pct` igual a 150 | Resposta 422 e nada guardado |
-| T39 | RF-S05 | U | O mesmo `POST` enviado duas vezes | Primeira resposta com `novas: 1`, segunda com `duplicadas: 1`. Um só registo |
-| T40 | RF-S06 | I | Comparar `recebido_em` com `ts` nas leituras de 27/10 entre 18:33 e 20:00 | `recebido_em` posterior a `ts` nas leituras que vieram da fila |
-| T41 | RNF-D02 | S | 100 envios seguidos com `curl -w "%{time_total}"` | Tempo médio abaixo de 500 ms |
-| T42 | RNF-D04 | S | 10 pedidos seguidos a `ultimas.php?por_divisao=1` | Todos abaixo de 1 s |
-| T43 | RNF-D03 | S | 4 nós reais a enviar durante 1 hora | Todas as leituras guardadas, sem buracos nem duplicados |
-| T44 | RF-S05 | S | Teste controlado: parar o contentor `web` durante 15 min, desligar o nó da corrente a meio, voltar a ligar o nó e depois o servidor (firmware versão 3, fila na flash) | O nó recupera a fila da flash e envia-a. Só falta o intervalo em que esteve sem energia |
-| T45 | RNF-S02 | S | A partir de fora do servidor, tentar ligar à porta 3306 | Ligação recusada |
-| T46 | Medição | I | LED a 40% (luz entre 150 e 300 lux), corrente lida pelo INA219 | Cerca de 2,2 mA, proporcional ao `led_pct` |
-| T47 | RF-S15 | U | `POST` com `corrente_ma` igual a 1500 | Resposta 422 e nada guardado |
-| T48 | RNF-S01 | S | Pedido por HTTP simples a `leituras.php` | Não devolve nem aceita leituras |
-| T49 | RNF-S04 | U | `POST` com comandos SQL no campo `no_id` e numa divisão | Recusado ou guardado como texto, sem alterar a base de dados |
-| T50 | RNF-M01 | S | Num servidor de teste, com os ficheiros do repositório e o ficheiro de configuração, subir o `docker compose` | `ultimas.php?por_divisao=1` responde |
-| T51 | RNF-D07 | S | Com 4 nós durante 120 dias (cerca de 2,8 milhões de linhas), repetir T26 e T42 | Os dois critérios continuam a cumprir-se. Só é possível com esse volume de dados, por isso fica para janeiro |
+| T38 | RF-S01 | U | `POST` a `leituras.php` com um token errado | Resposta 401 e nada guardado |
+| T39 | RF-S04 | U | `POST` com `led_pct` igual a 150 | Resposta 422 e nada guardado |
+| T40 | RF-S05 | U | O mesmo `POST` enviado duas vezes | Primeira resposta com `novas: 1`, segunda com `duplicadas: 1`. Um só registo |
+| T41 | RF-S06 | I | Comparar `recebido_em` com `ts` nas leituras de 27/10 entre 18:33 e 20:00 | `recebido_em` posterior a `ts` nas leituras que vieram da fila |
+| T42 | RNF-D02 | S | 100 envios seguidos com `curl -w "%{time_total}"` | Tempo médio abaixo de 500 ms |
+| T43 | RNF-D04 | S | 10 pedidos seguidos a `ultimas.php?por_divisao=1` | Todos abaixo de 1 s |
+| T44 | RNF-D03 | S | 4 nós reais a enviar durante 1 hora | Todas as leituras guardadas, sem buracos nem duplicados |
+| T45 | RF-S05 | S | Teste controlado: parar o contentor `web` durante 15 min, desligar o nó da corrente a meio, voltar a ligar o nó e depois o servidor (firmware versão 3, fila na flash) | O nó recupera a fila da flash e envia-a. Só falta o intervalo em que esteve sem energia |
+| T46 | RNF-S02 | S | A partir de fora do servidor, tentar ligar à porta 3306 | Ligação recusada |
+| T47 | Medição | I | LED a 40% (luz entre 150 e 300 lux), corrente lida pelo INA219 | Cerca de 2,2 mA, proporcional ao `led_pct` |
+| T48 | RF-S15 | U | `POST` com `corrente_ma` igual a 1500 | Resposta 422 e nada guardado |
+| T49 | RNF-S01 | S | Pedido por HTTP simples a `leituras.php` | Não devolve nem aceita leituras |
+| T50 | RNF-S04 | U | `POST` com comandos SQL no campo `no_id` e numa divisão | Recusado ou guardado como texto, sem alterar a base de dados |
+| T51 | RNF-M01 | S | Num servidor de teste, com os ficheiros do repositório e o ficheiro de configuração, subir o `docker compose` | `ultimas.php?por_divisao=1` responde |
+| T52 | RNF-D07 | S | Com 4 nós durante 120 dias (cerca de 2,8 milhões de linhas), repetir T26 e T43 | Os dois critérios continuam a cumprir-se. Só é possível com esse volume de dados, por isso fica para janeiro |
 
 ## Observações
 

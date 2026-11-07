@@ -7,6 +7,7 @@ API em PHP que recebe as leituras dos nós e as disponibiliza ao dashboard e à 
 | `public/leituras.php` | `POST`: recebe uma leitura de um nó (cabeçalho `X-Token`, corpo JSON), valida-a e guarda-a. Ignora leituras repetidas. Aceita a corrente do LED (`corrente_ma`) nos nós com INA219. |
 | `public/ultimas.php` | `GET`: devolve as últimas leituras. Com a chave de administrador vê todos os nós, com o token de um nó só vê esse nó. Cada leitura inclui o tipo de sensor de luz do nó. Com `por_divisao=1` devolve só a última leitura de cada divisão. |
 | `public/historico.php` | `GET`: devolve as leituras de um nó entre duas datas, com a localização, o fuso e o tipo de sensor de luz do nó. Mesmo controlo de acesso do `ultimas.php`. |
+| `public/nos.php` | `GET`: devolve a lista dos nós, com a descrição, o fuso, o país e as coordenadas. Só aceita chave, não o token de um nó. |
 | `public/db.php` | Ligação à base de dados e resposta em JSON. As credenciais vêm de variáveis de ambiente. |
 | `Dockerfile` | Imagem `php:8.3-apache` com a extensão `pdo_mysql`. |
 
@@ -22,7 +23,7 @@ API em PHP que recebe as leituras dos nós e as disponibiliza ao dashboard e à 
 
 ## Consulta de leituras
 
-Os dois pedidos aceitam uma chave (`chave`), que pode ser a de administrador ou a de leitura, ou então o token do próprio nó (`no_id` e `token`). As duas chaves dão acesso a todos os nós e só permitem consultar.
+O `ultimas.php` e o `historico.php` aceitam uma chave (`chave`), que pode ser a de administrador ou a de leitura, ou então o token do próprio nó (`no_id` e `token`). As duas chaves dão acesso a todos os nós e só permitem consultar.
 
 ### `ultimas.php`
 
@@ -45,6 +46,10 @@ Os dois pedidos aceitam uma chave (`chave`), que pode ser a de administrador ou 
 As leituras vêm da mais antiga para a mais recente.
 
 A resposta tem os campos `no` (`no_id`, `descricao`, `sensor_luz`, `latitude`, `longitude` e `fuso`), `de`, `ate`, `mais` e `leituras`.
+
+### `nos.php`
+
+Não tem parâmetros além da chave. Devolve a lista dos nós registados, ordenada por `no_id`, no campo `nos`. Cada nó traz `no_id`, `descricao`, `sensor_luz`, `fuso`, `pais`, `latitude` e `longitude`. Só aceita a chave de administrador ou a de leitura, e não aceita o token de um nó.
 
 ## Respostas da consulta
 
