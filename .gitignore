@@ -42,3 +42,7 @@ dist/
 # Ficheiros temporários
 *.log
 *.tmp
+
+config.h
+ai/data/raw/
+ai/data/processed/
