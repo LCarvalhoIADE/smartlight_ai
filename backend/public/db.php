@@ -13,3 +13,7 @@ function resp(int $code, array $body): never {
     echo json_encode($body, JSON_UNESCAPED_UNICODE);
     exit;
 }
+function chave_pedido(): string {
+    $h = $_SERVER['HTTP_X_CHAVE'] ?? '';
+    return $h !== '' ? $h : (string)($_GET['chave'] ?? '');
+}

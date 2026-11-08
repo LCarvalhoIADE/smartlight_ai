@@ -30,6 +30,8 @@ $linhas = [];
 foreach ($j['divisoes'] as $d) {
     if (!is_array($d)) resp(422, ['erro' => 'divisao invalida']);
     $nome = $d['id'] ?? 'sala';
+    // Os nomes das divisões guardam-se em minúsculas e sem espaços nas pontas.
+    if (is_string($nome)) $nome = mb_strtolower(trim($nome));
     if (!is_string($nome) || !preg_match('/^.{1,32}$/su', $nome)) resp(422, ['erro' => 'nome da divisao invalido']);
     $pres = (int)(!empty($d['presenca']));
     $led  = (int)($d['led_pct'] ?? 0);
