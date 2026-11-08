@@ -29,6 +29,18 @@ function nomeNo(id) {
 function nomeDiv(d) {
   return d ? d.charAt(0).toUpperCase() + d.slice(1) : '—';
 }
+// Sensor de luz digital (no3, no4): só indica claro ou escuro.
+// Confirmar com o Luís qual dos valores (0 ou 1) quer dizer escuro.
+const DIGITAL_1 = 'claro';
+const DIGITAL_0 = 'escuro';
+
+function textoLuz(l) {
+  if (l.luz_pct !== null && l.luz_pct !== undefined) return `${l.luz_pct} %`;
+  if (l.sensor_luz === 'digital' && l.luz_raw !== null && l.luz_raw !== undefined) {
+    return Number(l.luz_raw) === 1 ? DIGITAL_1 : DIGITAL_0;
+  }
+  return 'sem sensor';
+}
 
 // Agrupa as leituras: nó -> divisão -> lista (mais recente primeiro)
 function agrupar(leituras, agora) {
@@ -82,9 +94,8 @@ function desenharCartoes(nos, agora, offlineS) {
     cab.append(el('span', 'pastilha ' + (online ? 'ok' : 'mau'), online ? 'online' : 'offline'));
     c.append(cab);
 
-    const luz = primeira.luz_pct;
     const info = el('p', 'no-info');
-    info.textContent = `Luz ambiente: ${luz === null || luz === undefined ? 'sem sensor' : luz + ' %'} · ${haQuanto(atraso)}`;
+    info.textContent = `Luz ambiente: ${textoLuz(primeira)} · ${haQuanto(atraso)}`;
     c.append(info);
 
     for (const [div, lista] of divs) {
