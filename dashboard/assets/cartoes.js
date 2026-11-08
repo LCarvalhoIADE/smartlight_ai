@@ -87,9 +87,14 @@ function desenharCartoes(nos, agora, offlineS) {
       if (escolhida === `${no}/${div}`) linha.classList.add('ativa');
       linha.addEventListener('click', () => escolher(`${no}/${div}`));
 
+      const idade = agora - l.ts;
+      const parada = idade > offlineS;
+      if (parada) linha.classList.add('parada');
+
       const topo = el('div', 'div-topo');
       topo.append(el('span', 'div-nome', nomeDiv(div)));
-      topo.append(el('span', 'pres ' + (pres ? 'sim' : 'nao'), pres ? 'com presença' : 'vazia'));
+      topo.append(el('span', 'pres ' + (!parada && pres ? 'sim' : 'nao'),
+        parada ? `sem leituras ${haQuanto(idade)}` : (pres ? 'com presença' : 'vazia')));
       linha.append(topo);
 
       const barra = el('div', 'barra');
@@ -146,12 +151,18 @@ function desenharGrafico(nos) {
   const dados = {
     labels: etiquetas,
     datasets: [
-      { label: 'Presença', data: pres, stepped: true, fill: true, borderWidth: 0,
-        backgroundColor: c.pres, pointRadius: 0, order: 3 },
-      { label: 'LED (%)', data: led, stepped: true, borderColor: c.led, backgroundColor: c.led,
-        borderWidth: 2, pointRadius: 0, order: 1 },
-      { label: 'Luz ambiente (%)', data: luz, borderColor: c.luz, backgroundColor: c.luz,
-        borderWidth: 2, pointRadius: 0, tension: 0.3, spanGaps: true, order: 2 },
+      {
+        label: 'Presença', data: pres, stepped: true, fill: true, borderWidth: 0,
+        backgroundColor: c.pres, pointRadius: 0, order: 3
+      },
+      {
+        label: 'LED (%)', data: led, stepped: true, borderColor: c.led, backgroundColor: c.led,
+        borderWidth: 2, pointRadius: 0, order: 1
+      },
+      {
+        label: 'Luz ambiente (%)', data: luz, borderColor: c.luz, backgroundColor: c.luz,
+        borderWidth: 2, pointRadius: 0, tension: 0.3, spanGaps: true, order: 2
+      },
     ],
   };
 
@@ -171,8 +182,12 @@ function desenharGrafico(nos) {
       interaction: { mode: 'index', intersect: false },
       scales: {
         y: { min: 0, max: 100, ticks: { color: c.texto, stepSize: 25 }, grid: { color: c.grelha } },
-        x: { ticks: { color: c.texto, maxTicksLimit: window.innerWidth < 600 ? 4 : 7, maxRotation: 0,
-               callback(v) { return this.getLabelForValue(v).slice(0, 5); } }, grid: { display: false } },
+        x: {
+          ticks: {
+            color: c.texto, maxTicksLimit: window.innerWidth < 600 ? 4 : 7, maxRotation: 0,
+            callback(v) { return this.getLabelForValue(v).slice(0, 5); }
+          }, grid: { display: false }
+        },
       },
       plugins: {
         legend: { labels: { color: c.texto, boxWidth: 12 } },
