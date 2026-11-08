@@ -1,6 +1,6 @@
 <?php
 // Devolve as leituras de um nó entre duas datas (de e ate, em segundos Unix UTC), por omissão as últimas 24 horas.
-// Aceita a chave de administrador, a chave de leitura ou o token do próprio nó. Responde com os dados do nó e a lista de leituras.
+// Aceita a chave de administrador ou de leitura (cabeçalho X-Chave ou parâmetro chave) e o token do próprio nó.
 require __DIR__ . '/db.php';
 $no = $_GET['no_id'] ?? '';
 if ($no === '') resp(422, ['erro' => 'falta o parametro no_id']);
@@ -11,7 +11,7 @@ $n = $st->fetch();
 $admin = false;
 foreach (['ADMIN_KEY', 'LEITURA_KEY'] as $v) {
     $k = getenv($v);
-    if ($k && hash_equals($k, $_GET['chave'] ?? '')) $admin = true;
+    if ($k && hash_equals($k, chave_pedido())) $admin = true;
 }
 if (!$admin) {
     $tok = $_GET['token'] ?? '';
