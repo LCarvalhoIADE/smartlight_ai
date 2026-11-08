@@ -20,9 +20,13 @@ if (!empty($cfg['exemplo'])) {
     exit;
 }
 
-$url = $cfg['url_ultimas'] . '?' . http_build_query(['chave' => $cfg['chave'], 'por_divisao' => 1]);
+$url = $cfg['url_ultimas'] . '?' . http_build_query(['por_divisao' => 1]);
 $ch = curl_init($url);
-curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 6]);
+curl_setopt_array($ch, [
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_TIMEOUT => 6,
+    CURLOPT_HTTPHEADER => ['X-Chave: ' . $cfg['chave']],
+]);
 $corpo = curl_exec($ch);
 $codigo = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 curl_close($ch);
