@@ -28,6 +28,7 @@ alinhados com os requisitos gerais do projeto.
 | RF-IA-08 | Comparar referência do dia anterior, Regressão Linear e Random Forest | Planeado |
 | RF-IA-09 | Avaliar previsões com MAE | Planeado |
 | RF-IA-10 | Enviar previsões para a API do projeto | Planeado |
+| RF-IA-11 | Calcular energia por hora UTC e divisão a partir de corrente medida, tensão assumida e intervalos reais, registando cobertura e períodos excluídos | Implementado e verificado com dados do no1 |
 
 RF-IA-02 exige oito campos comuns ao JSON e ao TSV.
 hora é opcional; luz_raw e luz_pct podem ser nulos.
@@ -137,6 +138,21 @@ Testes:
 Os módulos meteorológicos não fazem pedidos de rede.
 A associação da localização ao no3 é manual.
 
+Cálculo energético horário
+
+- Módulo `ai/src/calcular_energia.py`.
+- Testes em `ai/tests/test_calcular_energia.py`.
+- Entrada local `ai/data/raw/no1_historico_2026-11-02.json`.
+- Saída local `ai/data/processed/no1_energia_2026-11-02.csv`.
+- Calcula potência em mW multiplicando corrente em mA pela tensão em V.
+- Integra a potência pelo método dos trapézios.
+- Divide os intervalos nas fronteiras horárias UTC, interpolando
+  a potência nas extremidades de cada segmento.
+- Exporta energia em mWh e Wh, segundos integrados e excluídos,
+  proporção de cobertura, tensão assumida e limite utilizado.
+- Preserva o ficheiro de entrada e os valores de corrente.
+- Substitui o CSV de saída em cada execução.
+
 ## 5. Modelo em V e rastreabilidade
 
 O grupo adotou o Modelo em V. Nesta etapa, as regras da componente
@@ -152,10 +168,10 @@ e verificações manuais com dados reais.
 | RF-IA-05 | Execução do script e geração do CSV | Verificação manual |
 | RF-IA-06 | Resumo de qualidade, intervalos, fronteira do alerta, configuração do limite, médias horárias, separação por hora/dia/divisão e tratamento de nulos | Testes aprovados; análise de qualidade e agregação horária implementadas |
 | RF-IA-07 | Validação meteorológica, alinhamento temporal, passagem de dia, preservação de nulos e rejeição de horas em falta | 46 casos automáticos aprovados e execução local com dados reais |
-
+| RF-IA-11 | 15 testes energéticos e execução com 5 734 leituras reais do no1 | Testes aprovados e CSV horário gerado |
 | RNF-IA-02 | Preservação da entrada nas funções preparar e analisar | Testes aprovados |
 
-Resultado: 114 testes automáticos aprovados.
+Resultado: 129 testes automáticos aprovados.
 
 - 27 de importação TSV.
 - 16 no ficheiro de preparação.
@@ -201,7 +217,7 @@ Validação manual da agregação:
 Estes resultados descrevem a amostra, não uma hora completa.
 Não foi calculado consumo energético.
 
-Validação manual do histórico do no3 em 01/11/2026:
+### Validação manual do histórico do no3 em 01/11/2026:
 
 - 33 190 leituras importadas e preparadas.
 - Início UTC: 2026-10-24T14:48:44+00:00.
@@ -241,6 +257,35 @@ Nas duas horas seguintes, foram registadas 180 leituras por hora, com intervalos
 Por este motivo, uma contagem inferior à mediana de 238 leituras por hora, por si só, é insuficiente para classificar uma hora como incompleta.
 
 Os resumos horários foram mantidos. A causa da alteração da frequência de recolha continua por confirmar.
+### Verificação energética em 08/11/2026
+
+Foi processado o histórico da sala do no1 de 02/11/2026.
+
+- 5 734 leituras recebidas, com mais=false na primeira página da consulta.
+- Zero duplicados por nó, divisão e timestamp.
+- Zero correntes ausentes ou negativas.
+- Intervalos entre leituras de 15 a 16 segundos.
+- Primeira leitura em 2026-11-02T00:00:14+00:00.
+- Última leitura em 2026-11-02T23:59:59+00:00.
+- Tensão assumida de 3,3 V.
+- Limite configurado de 30 segundos.
+- 24 resumos horários.
+- 86 385 segundos integrados.
+- Zero segundos excluídos entre as leituras.
+- 15 segundos exteriores ao período observado.
+- Energia calculada de aproximadamente 12,151608 mWh,
+  equivalente a 0,012151608 Wh.
+- 15 testes do módulo aprovados.
+- Suite completa com 129 testes aprovados.
+
+A execução verifica o processamento do histórico disponível.
+A precisão física depende do INA219, da tensão assumida e das
+hipóteses da integração.
+
+Segundo Luís, o firmware ajusta o PWM, regista led_pct e lê
+a corrente no mesmo ciclo. A média de aproximadamente 70 ms
+do INA219 pode introduzir efeitos transitórios após mudanças
+do PWM. As medições foram preservadas no cálculo.
 
 ## 6. Decisões técnicas
 
@@ -301,7 +346,7 @@ Continuam pendentes:
 | Risco ou limitação | Tratamento previsto |
 |---|---|
 | Histórico curto e heterogéneo | Continuar a recolha e distinguir nós, sensores e períodos antes de avaliar modelos |
-| Falta de consumo energético válido | Aguardar medição ou estimativa calibrada e identificada |
+| Disponibilidade e precisão dos dados energéticos | Ampliar o histórico do no1, documentar a tensão assumida e validar as estimativas dos restantes nós |
 | Falhas de recolha | Medir intervalos e sinalizar períodos incompletos |
 | Mudanças de sensores | Registar datas e distinguir os períodos de recolha |
 | Diferenças de fusos horários | Uniformizar instantes em UTC |
@@ -351,10 +396,11 @@ Os resultados dos testes devem acompanhar as alterações de código.
 
 ## 10. Próximas etapas
 
-1. Usar pandas para analisar os 142 resumos horários do no3 e definir critérios de utilização por análise, considerando horas parciais, interrupções e medições ausentes.
-2. Confirmar a localização de cada nó, as unidades de luminosidade, as mudanças de sensores e as anomalias antes de integrar os restantes nós.
-3. Continuar a recolha e acordar com o grupo o consumo a prever, a respetiva unidade e a antecedência da previsão.
-4. Automatizar a recolha de meteorologia e guardar as previsões disponíveis no momento em que a IA fizer cada previsão de consumo.
-5. Quando existir um histórico de consumo válido, comparar a referência da mesma hora do dia anterior, a Regressão Linear e a Random Forest.
-Avaliar com MAE, separando treino e teste por ordem temporal.
-6. Acordar o formato das previsões com os responsáveis pela API e pelo dashboard e testar o envio, o armazenamento e a apresentação.
+1. Ampliar o histórico energético do no1 e avaliar a cobertura por hora.
+2. Validar a hipótese de integração e o limite temporal configurável.
+3. Implementar e testar a estimativa por PWM dos restantes nós, documentando a potência de referência aplicável a cada instalação.
+4. Integrar os restantes nós considerando localização, divisão, unidades, alterações de sensores e anomalias conhecidas.
+5. Obter meteorologia para a localização e período de cada nó e preparar a aquisição de previsões disponíveis no instante de emissão.
+6. Formalizar com o grupo a emissão às 20h locais para o dia civil seguinte, com resultados horários e total diário.
+7. Comparar referência histórica, Regressão Linear e Random Forest quando existir histórico adequado, usando MAE e avaliação temporal.
+8. Acordar e testar o envio, armazenamento e apresentação das previsões com os responsáveis pela API e pelo dashboard.
