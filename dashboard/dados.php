@@ -20,7 +20,7 @@ if (!empty($cfg['exemplo'])) {
     exit;
 }
 
-$url = $cfg['url_ultimas'] . '?' . http_build_query(['chave' => $cfg['chave'], 'n' => 50]);
+$url = $cfg['url_ultimas'] . '?' . http_build_query(['chave' => $cfg['chave'], 'por_divisao' => 1]);
 $ch = curl_init($url);
 curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 6]);
 $corpo = curl_exec($ch);

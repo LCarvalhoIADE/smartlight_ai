@@ -9,12 +9,17 @@
 <body>
 <header class="topo">
   <h1>SmartLight</h1>
-  <span id="estado">a carregar…</span>
+  <span id="estado-ligacao" class="pastilha">a carregar…</span>
 </header>
 <main>
   <h2>Estado atual</h2>
-  <div id="cartoes" class="grelha"></div>
+  <div id="nos" class="grelha"></div>
+
+  <h2>Últimas leituras</h2>
+  <select id="escolha" aria-label="Divisão a mostrar no gráfico"></select>
+  <div style="position: relative; height: 260px;"><canvas id="grafico"></canvas></div>
 </main>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="assets/cartoes.js"></script>
 </body>
 </html>
