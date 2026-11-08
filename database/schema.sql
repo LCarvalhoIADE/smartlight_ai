@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS nos (
   sensor_luz VARCHAR(16) NULL,
   latitude DECIMAL(5,2) NULL,
   longitude DECIMAL(5,2) NULL,
-  fuso VARCHAR(40) NULL
+  fuso VARCHAR(40) NULL,
+  pais CHAR(2) NULL
 );
 CREATE TABLE IF NOT EXISTS leituras (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -23,6 +24,7 @@ CREATE TABLE IF NOT EXISTS leituras (
   modo VARCHAR(16) NOT NULL,
   UNIQUE KEY uq_leitura (no_id, boot_id, seq, divisao),
   KEY idx_no_ts (no_id, ts),
+  KEY idx_no_div_id (no_id, divisao, id),
   FOREIGN KEY (no_id) REFERENCES nos(no_id)
 );
 -- Sem nós por omissão. Cada nó é criado à mão, com um token próprio.
