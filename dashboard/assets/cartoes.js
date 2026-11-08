@@ -217,7 +217,7 @@ function desenharGrafico(nos) {
 function escolher(v) {
   escolhida = v;
   if (!ultimoPacote) return;
-  const nos = agrupar(ultimoPacote.leituras);
+  const nos = agrupar(ultimoPacote.leituras, ultimoPacote.agora);
   atualizarEscolha(nos);
   desenharCartoes(nos, ultimoPacote.agora, ultimoPacote.offline_s);
   desenharGrafico(nos);
@@ -237,7 +237,7 @@ async function atualizar() {
     if (!r.ok) throw new Error(pacote.erro || `erro ${r.status}`);
 
     ultimoPacote = pacote;
-    const nos = agrupar(pacote.leituras || []);
+    const nos = agrupar(pacote.leituras || [], pacote.agora);
     atualizarEscolha(nos);
     desenharCartoes(nos, pacote.agora, pacote.offline_s || 60);
     desenharGrafico(nos);
