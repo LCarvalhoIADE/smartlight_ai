@@ -26,8 +26,11 @@ respeitando a ordem temporal dos dados de treino e teste.
 - Meteorologia histórica da Open-Meteo obtida manualmente em JSON.
 - 168 horas meteorológicas preparadas para 24–30/10/2026.
 - Cruzamento local com os 142 resumos horários do no3.
-- 114 testes automáticos aprovados.
-- Sem cálculo de consumo ou treino de modelos.
+- Cálculo energético horário implementado e executado para o no1.
+- Processadas 5 734 leituras da sala do no1 relativas a 02/11/2026.
+- Produzidos 24 resumos energéticos horários.
+- 129 testes automáticos aprovados.
+- Treino e avaliação dos modelos ainda pendentes.
 - Aquisição meteorológica automática pela API ainda não implementada.
 
 ## Organização
@@ -107,6 +110,18 @@ O cruzamento lê os ficheiros originais e reutiliza as funções de
 preparação em memória. Não depende da execução prévia dos comandos
 que exportam os CSV intermédios.
 
+Calcular energia horária a partir da corrente medida do no1:
+
+```powershell
+python -m ai.src.calcular_energia
+```
+
+A tensão assumida e o limite entre leituras são configuráveis:
+
+```powershell
+python -m ai.src.calcular_energia --tensao 3.3 --limite-intervalo 30
+```
+
 ## Entrada e saída
 
 Caminhos relativos à raiz do repositório:
@@ -116,6 +131,7 @@ Caminhos relativos à raiz do repositório:
 | ai/data/raw/no3_amostra.json | Preparação da amostra | ai/data/processed/no3_preparado.csv |
 | ai/data/raw/no3_amostra.json | Agregação com --amostra | ai/data/processed/no3_por_hora.csv |
 | ai/data/raw/leituras.tsv | Agregação do histórico do no3 | ai/data/processed/no3_historico_por_hora.csv |
+| ai/data/raw/no1_historico_2026-11-02.json | Cálculo energético horário do no1 | ai/data/processed/no1_energia_2026-11-02.csv |
 
 A importação e a análise de qualidade apresentam resultados no
 terminal, sem criar ficheiros.
@@ -148,34 +164,37 @@ nem utilizados no cruzamento.
 ## Limitações atuais
 
 - A amostra é pequena e destina-se a validar o processamento.
-- luz_pct é nulo porque o sensor atual é digital.
+- No histórico digital do no3, luz_pct é nulo.
 - Os valores nulos são preservados, ficando vazios no CSV.
 - led_pct indica a intensidade comandada ao LED, não energia medida.
-- Os dados atualmente processados não contêm medições energéticas.
+- O cálculo energético atual usa corrente medida pelo INA219 do no1 e tensão assumida constante de 3,3 V.
+- O resultado representa o circuito de iluminação, incluindo LED e resistência.
+- A integração por trapézios assume variação linear da potência entre leituras consecutivas.
+- O limite de 30 segundos é uma hipótese provisória e configurável.
+- Intervalos superiores ao limite ou com corrente ausente, negativa ou não finita são excluídos e contabilizados.
+- A cobertura energética corresponde aos segundos efetivamente integrados.
+- Os períodos exteriores à primeira e à última leitura ficam sem estimativa.
+- A média de aproximadamente 70 ms do INA219 pode produzir efeitos transitórios após alterações do PWM, segundo o responsável pelo firmware.
+- As correntes medidas são preservadas, incluindo valores positivos quando led_pct é zero.
+- A estimativa energética por PWM para os restantes nós está pendente de implementação.
 - A integração meteorológica é local e histórica, limitada ao no3.
-- A correspondência entre o JSON meteorológico e a localização do no3
-  é configurada manualmente; o código não verifica essa localização.
-- Meteorologia histórica não representa uma previsão disponível
-  antecipadamente. O conjunto cruzado destina-se à análise do passado.
+- A correspondência entre o JSON meteorológico e a localização do no3 é configurada manualmente; o código não verifica essa localização.
+- Meteorologia histórica não representa uma previsão disponível antecipadamente. O conjunto cruzado destina-se à análise do passado.
 - Os dados diários ainda não foram validados nem integrados.
-- Cruzar uma hora parcial do ESP32 com meteorologia não completa
-  as leituras em falta.
+- Cruzar uma hora parcial do ESP32 com meteorologia não completa as leituras em falta.
 - As médias horárias não são ponderadas pelo tempo.
 - Horas sem leituras não são preenchidas.
 - Um resumo horário não comprova que a hora está completa.
 - A proporção de leituras com presença não representa o tempo exato de ocupação.
 - Os testes verificam regras do código, não a precisão dos sensores.
 - Os comandos de análise e agregação processam atualmente o no3, a integração dos restantes nós está pendente.
-- Intervalos superiores a 30 segundos geram alertas configuráveis,
-  mas não confirmam perda de dados.
+- Intervalos superiores a 30 segundos geram alertas configuráveis, mas não confirmam perda de dados.
 - A análise cobre apenas os intervalos internos dos dados disponíveis.
 - O histórico do no3 abrange 24 a 30 de outubro de 2026, com dias parciais.
 - luz_raw tem 2 519 valores ausentes no histórico do no3.
 - hora ausente no TSV não significa ausência de timestamp.
-- numero_leituras_luz_raw conta valores disponíveis, não medições
-  fisicamente validadas.
-- As regras específicas para sensores avariados, valores negativos
-  e mudanças de unidades ainda não estão implementadas.
+- numero_leituras_luz_raw conta valores disponíveis, não medições fisicamente validadas.
+- As regras específicas para sensores avariados, valores negativos e mudanças de unidades ainda não estão implementadas.
 - Não se devem misturar luminosidade digital, valores analógicos e lux.
 
 ## Implementação e testes
@@ -196,7 +215,7 @@ Nesta componente, os testes automáticos verificam:
 - Configuração do limite e rejeição de limites inválidos.
 - Preservação da entrada durante a análise.
 
-Distribuição dos 114 casos de teste:
+Distribuição dos 129 casos de teste:
 
 - 27 de importação TSV.
 - 16 no ficheiro de preparação, incluindo um teste de integração entre importação e preparação.
@@ -204,6 +223,7 @@ Distribuição dos 114 casos de teste:
 - 12 de agregação horária.
 - 31 de preparação meteorológica.
 - 15 de cruzamento meteorológico.
+- 15 de cálculo energético.
 
 Estas contagens incluem os casos parametrizados.
 
@@ -220,16 +240,19 @@ Os testes do cruzamento verificam alinhamento temporal, passagem
 da meia-noite, preservação das entradas e rejeição de duplicados,
 horas necessárias em falta e nós diferentes de no3.
 
+Os testes energéticos verificam conversão de unidades, preservação
+da entrada, integração por trapézios, divisão nas fronteiras horárias,
+conservação da energia, configuração e fronteira do limite temporal,
+exclusão de intervalos com corrente inválida, corrente zero,
+leitura isolada, separação de divisões e rejeição de duplicados
+e respostas com mais páginas.
+
 ## Próximas etapas
 
-1. Recolher e validar meteorologia para a localização e período do no3.
-2. Cruzar meteorologia e resumos horários, respeitando os intervalos
-   temporais representados por cada variável.
-3. Confirmar localizações, unidades, mudanças de sensores e anomalias
-   antes de integrar os restantes nós.
-4. Continuar a recolha e definir o alvo energético e o horizonte.
-5. Treinar e comparar os modelos quando existir consumo válido.
-6. Integrar as previsões com a API e o dashboard.
-
-Os endpoints, a autenticação e o formato de envio das previsões
-ainda serão acordados com os responsáveis.
+1. Ampliar e validar o histórico energético do no1.
+2. Validar o método de integração e o limite temporal.
+3. Implementar a estimativa energética dos restantes nós.
+4. Integrar os restantes nós e respetivos dados meteorológicos.
+5. Formalizar a previsão para o dia civil seguinte.
+6. Treinar e avaliar os modelos com MAE e separação temporal.
+7. Integrar as previsões com a API e o dashboard.
