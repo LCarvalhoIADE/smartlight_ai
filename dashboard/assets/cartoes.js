@@ -31,7 +31,7 @@ function nomeDiv(d) {
 }
 
 // Agrupa as leituras: nó -> divisão -> lista (mais recente primeiro)
-function agrupar(leituras) {
+function agrupar(leituras, agora) {
   const nos = new Map();
   const ordenadas = [...leituras].sort((a, b) => b.ts - a.ts);
   for (const l of ordenadas) {
@@ -39,6 +39,17 @@ function agrupar(leituras) {
     const divs = nos.get(l.no_id);
     if (!divs.has(l.divisao)) divs.set(l.divisao, []);
     divs.get(l.divisao).push(l);
+  }
+  // Esconde as divisões paradas há mais de 24 h, se o nó tiver outras com leituras recentes.
+  // Se o nó estiver todo parado, mostra tudo, para se ver que está offline.
+  if (agora) {
+    for (const divs of nos.values()) {
+      const recente = Math.max(...[...divs.values()].map((lista) => lista[0].ts));
+      if (agora - recente > ESCONDER_S) continue;
+      for (const [div, lista] of divs) {
+        if (agora - lista[0].ts > ESCONDER_S) divs.delete(div);
+      }
+    }
   }
   return new Map([...nos].sort((a, b) => a[0].localeCompare(b[0], 'pt', { numeric: true })));
 }
