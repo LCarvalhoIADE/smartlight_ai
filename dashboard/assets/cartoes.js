@@ -2,7 +2,7 @@
 'use strict';
 
 const INTERVALO_MS = 15000;
-const N_LEITURAS = 400;
+const ESCONDER_S = 86400;   // esconde divisões sem leituras há mais de 24 h
 
 let grafico = null;
 let escolhida = null;       // "no2/quarto"
