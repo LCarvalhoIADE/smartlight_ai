@@ -179,6 +179,7 @@ Resultado: 129 testes automáticos aprovados.
 - 12 de agregação horária.
 - 31 de preparação meteorológica.
 - 15 de cruzamento meteorológico.
+- 15 de cálculo energético.
 
 As contagens incluem os casos parametrizados.
 Um dos testes de preparação verifica a integração entre importar_tsv
@@ -214,8 +215,12 @@ Validação manual da agregação:
 - Intensidade LED média: 44%.
 - Luminosidade percentual média: sem dados.
 
-Estes resultados descrevem a amostra, não uma hora completa.
-Não foi calculado consumo energético.
+Estes resultados descrevem a amostra de 50 leituras do no3,
+não uma hora completa. Nesta validação histórica do no3,
+não foi calculado consumo energético.
+
+O cálculo energético posterior do no1 está documentado
+na verificação de 08/11/2026.
 
 ### Validação manual do histórico do no3 em 01/11/2026:
 
@@ -286,6 +291,30 @@ Segundo Luís, o firmware ajusta o PWM, regista led_pct e lê
 a corrente no mesmo ciclo. A média de aproximadamente 70 ms
 do INA219 pode introduzir efeitos transitórios após mudanças
 do PWM. As medições foram preservadas no cálculo.
+
+### Comparação preliminar com o T20
+
+O resultado de aproximadamente 12,0 mWh referido para o T20
+do Luís difere dos 12,151608 mWh calculados pelo módulo Python.
+Tomando 12,0 mWh como referência, a diferença é aproximadamente
+0,151608 mWh, ou 1,26%.
+
+Esta comparação é provisória: é necessário confirmar se ambos
+os resultados utilizam o mesmo período, divisão e conjunto de leituras.
+
+O módulo Python utiliza corrente medida, tensão assumida de 3,3 V,
+intervalos reais entre timestamps e integração pelo método dos
+trapézios. Preserva também correntes positivas quando led_pct é zero.
+
+As possíveis diferenças de metodologia a verificar incluem:
+- Corrente medida ou estimativa baseada no PWM.
+- Intervalos reais ou duração fixa por leitura.
+- Método de integração.
+- Tratamento das correntes com o LED comandado para zero.
+- Limites temporais e arredondamentos.
+
+Sem consultar o cálculo do T20, não é possível atribuir a diferença
+a uma causa específica nem concluir qual resultado é mais preciso.
 
 ## 6. Decisões técnicas
 

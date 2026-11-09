@@ -249,10 +249,17 @@ e respostas com mais páginas.
 
 ## Próximas etapas
 
-1. Ampliar e validar o histórico energético do no1.
-2. Validar o método de integração e o limite temporal.
-3. Implementar a estimativa energética dos restantes nós.
-4. Integrar os restantes nós e respetivos dados meteorológicos.
-5. Formalizar a previsão para o dia civil seguinte.
-6. Treinar e avaliar os modelos com MAE e separação temporal.
-7. Integrar as previsões com a API e o dashboard.
+1. Ampliar o histórico energético do no1 e avaliar a cobertura por hora.
+2. Validar a hipótese de integração e o limite temporal configurável.
+3. Implementar e testar a estimativa por PWM dos restantes nós,
+   documentando a potência de referência aplicável a cada instalação.
+4. Integrar os restantes nós considerando localização, divisão,
+   unidades, alterações de sensores e anomalias conhecidas.
+5. Obter meteorologia para a localização e período de cada nó
+   e preparar a aquisição de previsões disponíveis no instante de emissão.
+6. Formalizar com o grupo a emissão às 20h locais para o dia civil seguinte,
+   com resultados horários e total diário.
+7. Comparar referência histórica, Regressão Linear e Random Forest
+   quando existir histórico adequado, usando MAE e avaliação temporal.
+8. Acordar e testar o envio, armazenamento e apresentação das previsões
+   com os responsáveis pela API e pelo dashboard.
