@@ -1,8 +1,8 @@
 <?php
-
+// Copiar para config.php e preencher. O config.php não vai para o Git.
 return [
-    'url_ultimas' => 'https://EXEMPLO/ultimas.php',  // rota do servidor com as últimas leituras
-    'chave'       => 'COLOCAR_A_CHAVE_AQUI',
-    'exemplo'     => false,  // true = dados inventados, para testar sem servidor
-    'offline_s'   => 60,     // segundos sem leituras até o nó aparecer como offline
+    'url_base'  => 'https://EXEMPLO',        // endereço do servidor do grupo, sem barra no fim
+    'chave'     => 'COLOCAR_A_CHAVE_AQUI',   // vai no cabeçalho X-Chave, nunca para o browser
+    'exemplo'   => true,                    // true = dados inventados, para testar sem servidor
+    'offline_s' => 60,                       // segundos sem leituras até a casa ficar «sem comunicação»
 ];

@@ -30,9 +30,8 @@ function nomeDiv(d) {
   return d ? d.charAt(0).toUpperCase() + d.slice(1) : '—';
 }
 // Sensor de luz digital (no3, no4): só indica claro ou escuro.
-// Confirmar com o Luís qual dos valores (0 ou 1) quer dizer escuro.
-const DIGITAL_1 = 'claro';
-const DIGITAL_0 = 'escuro';
+const DIGITAL_1 = 'escuro';
+const DIGITAL_0 = 'claro';
 
 function textoLuz(l) {
   if (l.luz_pct !== null && l.luz_pct !== undefined) return `${l.luz_pct} %`;
@@ -242,7 +241,7 @@ function estadoLigacao(ok, texto) {
 
 async function atualizar() {
   try {
-    const r = await fetch(`dados.php?n=${N_LEITURAS}`, { cache: 'no-store', credentials: 'same-origin' });
+    const r = await fetch('dados.php', { cache: 'no-store', credentials: 'same-origin' });
     if (r.status === 401) { location.href = 'login.php'; return; }
     const pacote = await r.json();
     if (!r.ok) throw new Error(pacote.erro || `erro ${r.status}`);
