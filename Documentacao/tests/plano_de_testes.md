@@ -4,7 +4,7 @@
 **Grupo:** g04  
 **Responsável pela componente de QA:** Ricardo Siqueira  
 **Versão do documento:** 1.0  
-**Estado:** Plano proposto — execução pendente
+**Estado:** Plano proposto — em andamento
 
 ---
 
@@ -344,3 +344,13 @@ Este plano deverá ser atualizado sempre que:
 - Forem alterados os mecanismos de autenticação ou comunicação.
 - Forem identificados novos riscos.
 - Forem adicionados testes ou critérios de aceitação.
+
+## 15. Documentação complementar
+
+Os resultados detalhados dos testes são mantidos junto das
+respetivas componentes:
+
+- `backend/TESTES.md`: testes do servidor, API e base de dados.
+- `ai/tests/`: testes automatizados da componente de IA.
+- `Documentacao/testes/resultados.md`: consolidação dos resultados
+  das diferentes componentes.
