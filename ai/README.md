@@ -29,9 +29,13 @@ respeitando a ordem temporal dos dados de treino e teste.
 - Cálculo energético horário implementado e executado para o no1.
 - Processadas 5 734 leituras da sala do no1 relativas a 02/11/2026.
 - Produzidos 24 resumos energéticos horários.
-- 129 testes automáticos aprovados.
 - Treino e avaliação dos modelos ainda pendentes.
 - Aquisição meteorológica automática pela API ainda não implementada.
+- 172 testes automáticos aprovados na execução de 09/11/2026.
+- Aquisição do histórico SmartLight por nó e período, com autenticação
+  pelo cabeçalho X-Chave e paginação.
+- Validação reutilizável do histórico: estrutura, timestamps,
+  duplicados, intervalos e cobertura temporal.
 
 ## Organização
 
@@ -121,6 +125,53 @@ A tensão assumida e o limite entre leituras são configuráveis:
 ```powershell
 python -m ai.src.calcular_energia --tensao 3.3 --limite-intervalo 30
 ```
+### Adquirir um histórico do servidor
+
+```powershell
+python -m ai.src.adquirir_historico --no no1 --inicio 2026-11-01 --fim 2026-11-08
+```
+
+As datas representam dias completos em UTC, incluindo o dia final.
+
+A chave de leitura ou administração é solicitada de forma oculta.
+Opcionalmente, pode ser obtida da variável de ambiente
+SMARTLIGHT_API_CHAVE. Não deve ser escrita no código ou versionada.
+
+A autenticação utiliza o cabeçalho X-Chave, sem incluir a chave no URL.
+Espaços exteriores da chave são removidos.
+
+O script percorre as páginas, valida o conjunto e guarda o JSON
+em ai/data/raw/. Preserva os metadados do nó e os valores das leituras.
+Recusa substituir ficheiros existentes ou guardar em destinos
+que não estejam ignorados pelo Git.
+
+O parâmetro --destino permite escolher outro ficheiro dentro
+de ai/data/raw/. O parâmetro --limite controla as leituras por página.
+
+### Validar um histórico local
+
+```powershell
+python -m ai.src.validar_historico --origem ai/data/raw/no1_historico_2026-11-01_2026-11-08.json --no no1
+```
+
+Apresenta contagens, valores nulos, intervalos por divisão e cobertura
+temporal segundo um limite provisório de 30 segundos.
+O limite pode ser alterado através de --limite-intervalo.
+
+Não modifica o ficheiro original nem cria ficheiros de saída.
+A cobertura temporal não equivale à cobertura energética.
+
+### Limitações da aquisição
+
+A paginação utiliza OFFSET. Alterações no histórico durante a consulta
+podem afetar a consistência das páginas; o cliente não garante uma
+fotografia imutável da base de dados.
+
+Se ocorrer uma falha, a aquisição é interrompida. Não existe ainda
+retoma automática nem repetição automática dos pedidos.
+
+Os módulos de aquisição e validação não consultam a Open-Meteo.
+A meteorologia já preparada continua associada exclusivamente ao no3.
 
 ## Entrada e saída
 
@@ -215,7 +266,7 @@ Nesta componente, os testes automáticos verificam:
 - Configuração do limite e rejeição de limites inválidos.
 - Preservação da entrada durante a análise.
 
-Distribuição dos 129 casos de teste:
+Distribuição dos 172 casos de teste:
 
 - 27 de importação TSV.
 - 16 no ficheiro de preparação, incluindo um teste de integração entre importação e preparação.
@@ -224,6 +275,8 @@ Distribuição dos 129 casos de teste:
 - 31 de preparação meteorológica.
 - 15 de cruzamento meteorológico.
 - 15 de cálculo energético.
+- 21 de validação do histórico da API.
+- 22 de aquisição do histórico.
 
 Estas contagens incluem os casos parametrizados.
 
