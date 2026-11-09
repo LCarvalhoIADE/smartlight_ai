@@ -29,6 +29,8 @@ alinhados com os requisitos gerais do projeto.
 | RF-IA-09 | Avaliar previsões com MAE | Planeado |
 | RF-IA-10 | Enviar previsões para a API do projeto | Planeado |
 | RF-IA-11 | Calcular energia por hora UTC e divisão a partir de corrente medida, tensão assumida e intervalos reais, registando cobertura e períodos excluídos | Implementado e verificado com dados do no1 |
+| RF-IA-12 | Adquirir histórico por nó e período através da API, com autenticação X-Chave, paginação e gravação local protegida | Implementado; verificação real com no1 |
+| RF-IA-13 | Validar o histórico da API e apresentar intervalos e cobertura temporal por divisão | Implementado; verificado com no1 |
 
 RF-IA-02 exige oito campos comuns ao JSON e ao TSV.
 hora é opcional; luz_raw e luz_pct podem ser nulos.
@@ -169,9 +171,11 @@ e verificações manuais com dados reais.
 | RF-IA-06 | Resumo de qualidade, intervalos, fronteira do alerta, configuração do limite, médias horárias, separação por hora/dia/divisão e tratamento de nulos | Testes aprovados; análise de qualidade e agregação horária implementadas |
 | RF-IA-07 | Validação meteorológica, alinhamento temporal, passagem de dia, preservação de nulos e rejeição de horas em falta | 46 casos automáticos aprovados e execução local com dados reais |
 | RF-IA-11 | 15 testes energéticos e execução com 5 734 leituras reais do no1 | Testes aprovados e CSV horário gerado |
+| RF-IA-12 | 22 casos automáticos de aquisição e execução real com 5 734 leituras em seis páginas | Testes aprovados e JSON guardado |
+| RF-IA-13 | 21 casos automáticos de validação e execução com históricos reais do no1 | Testes aprovados e resumos apresentados |
 | RNF-IA-02 | Preservação da entrada nas funções preparar e analisar | Testes aprovados |
 
-Resultado: 129 testes automáticos aprovados.
+Resultado: 172 testes automáticos aprovados.
 
 - 27 de importação TSV.
 - 16 no ficheiro de preparação.
@@ -180,6 +184,8 @@ Resultado: 129 testes automáticos aprovados.
 - 31 de preparação meteorológica.
 - 15 de cruzamento meteorológico.
 - 15 de cálculo energético.
+- 21 de validação do histórico da API.
+- 22 de aquisição do histórico.
 
 As contagens incluem os casos parametrizados.
 Um dos testes de preparação verifica a integração entre importar_tsv
@@ -291,6 +297,41 @@ Segundo Luís, o firmware ajusta o PWM, regista led_pct e lê
 a corrente no mesmo ciclo. A média de aproximadamente 70 ms
 do INA219 pode introduzir efeitos transitórios após mudanças
 do PWM. As medições foram preservadas no cálculo.
+
+### Verificação da aquisição e validação em 09/11/2026
+
+- Suite completa: 172 testes aprovados.
+- Aquisição automática do no1 para 02/11/2026 através de X-Chave.
+- 5 734 leituras recolhidas em seis páginas, com limite de 1 000.
+- Zero duplicados e zero leituras fora do período.
+- Intervalos de 15–16 segundos, sem intervalos superiores a 30 segundos.
+- Zero valores nulos nos campos analisados.
+- 86 385 segundos em intervalos aceites e 15 segundos exteriores.
+- Cobertura temporal de 99,9826%.
+- JSON confirmado como ignorado pelo Git.
+
+O histórico alargado de 01–08/11/2026, adquirido anteriormente
+com PowerShell, foi também validado:
+
+- 45 555 leituras, sem duplicados ou timestamps fora do período.
+- 11 intervalos superiores a 30 segundos; máximo de 1 831 segundos.
+- 2 976 leituras com corrente ausente.
+- Cobertura temporal de 99,4663%.
+
+O módulo energético produziu 192 resumos horários:
+
+- 642 894 segundos integrados.
+- 48 295 segundos excluídos entre leituras.
+- 11 segundos exteriores ao período observado.
+- Cobertura energética de aproximadamente 93,01% dos oito dias.
+- Energia nos intervalos integrados: 112,316004 mWh.
+
+A energia calculada não representa necessariamente o consumo total
+dos oito dias. Não foram preenchidos períodos ausentes com zero.
+
+Os testes automáticos da aquisição utilizam respostas fictícias.
+A consulta real ao servidor constitui uma verificação manual
+de integração, distinta desses testes.
 
 ### Comparação preliminar com o T20
 
