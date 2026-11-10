@@ -31,7 +31,7 @@ respeitando a ordem temporal dos dados de treino e teste.
 - Produzidos 24 resumos energéticos horários.
 - Treino e avaliação dos modelos ainda pendentes.
 - Aquisição meteorológica automática pela API ainda não implementada.
-- 172 testes automáticos aprovados na execução de 09/11/2026.
+- 178 testes automáticos aprovados na execução de 09/11/2026.
 - Aquisição do histórico SmartLight por nó e período, com autenticação
   pelo cabeçalho X-Chave e paginação.
 - Validação reutilizável do histórico: estrutura, timestamps,
@@ -173,6 +173,22 @@ retoma automática nem repetição automática dos pedidos.
 Os módulos de aquisição e validação não consultam a Open-Meteo.
 A meteorologia já preparada continua associada exclusivamente ao no3.
 
+### Analisar a cobertura energética
+
+```powershell
+python -m ai.src.analisar_cobertura_energia --origem ai/data/raw/no1_historico_2026-11-01_2026-11-08.json --no no1 --detalhes
+```
+
+O módulo reutiliza a validação e o cálculo energético existentes.
+Apresenta resultados por dia UTC e divisão, incluindo horas com
+cobertura completa, parcial ou nula e contagens de correntes ausentes.
+
+Exige um período de dias UTC completos. Não altera os dados,
+não cria ficheiros nem preenche falhas.
+
+Cobertura completa significa 3 600 segundos integrados segundo
+as hipóteses utilizadas; não comprova a precisão física das medições.
+
 ## Entrada e saída
 
 Caminhos relativos à raiz do repositório:
@@ -266,7 +282,7 @@ Nesta componente, os testes automáticos verificam:
 - Configuração do limite e rejeição de limites inválidos.
 - Preservação da entrada durante a análise.
 
-Distribuição dos 172 casos de teste:
+Distribuição dos 178 casos de teste:
 
 - 27 de importação TSV.
 - 16 no ficheiro de preparação, incluindo um teste de integração entre importação e preparação.
@@ -277,6 +293,7 @@ Distribuição dos 172 casos de teste:
 - 15 de cálculo energético.
 - 21 de validação do histórico da API.
 - 22 de aquisição do histórico.
+- 6 de análise da cobertura energética.
 
 Estas contagens incluem os casos parametrizados.
 

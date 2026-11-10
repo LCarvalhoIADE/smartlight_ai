@@ -175,7 +175,7 @@ e verificações manuais com dados reais.
 | RF-IA-13 | 21 casos automáticos de validação e execução com históricos reais do no1 | Testes aprovados e resumos apresentados |
 | RNF-IA-02 | Preservação da entrada nas funções preparar e analisar | Testes aprovados |
 
-Resultado: 172 testes automáticos aprovados.
+Resultado: 178 testes automáticos aprovados.
 
 - 27 de importação TSV.
 - 16 no ficheiro de preparação.
@@ -186,6 +186,7 @@ Resultado: 172 testes automáticos aprovados.
 - 15 de cálculo energético.
 - 21 de validação do histórico da API.
 - 22 de aquisição do histórico.
+- 6 de análise da cobertura energética.
 
 As contagens incluem os casos parametrizados.
 Um dos testes de preparação verifica a integração entre importar_tsv
@@ -356,6 +357,33 @@ As possíveis diferenças de metodologia a verificar incluem:
 
 Sem consultar o cálculo do T20, não é possível atribuir a diferença
 a uma causa específica nem concluir qual resultado é mais preciso.
+
+### Análise da cobertura energética em 09/11/2026
+
+Módulo: ai/src/analisar_cobertura_energia.py.
+Testes: ai/tests/test_analisar_cobertura_energia.py.
+
+- Seis testes do módulo aprovados; suite completa com 178 testes.
+- Histórico analisado: no1, sala, de 01 a 08/11/2026.
+- 176 horas com cobertura energética completa.
+- Três horas com cobertura parcial.
+- 13 horas sem cobertura energética.
+- As 2 976 correntes ausentes concentram-se em 01/11.
+- Cobertura energética de 01/11: 44,1019%.
+- Dias 02–07/11: cobertura de 100% segundo as regras de integração.
+- Dia 08/11: cobertura de 99,9884%, com dez segundos finais sem intervalo.
+
+O histórico alargado permite integrar intervalos que atravessam
+a meia-noite, utilizando leituras dos dias adjacentes. Isto explica
+a cobertura de 100% em 02/11, superior à obtida com o ficheiro
+isolado desse dia, sem extrapolar nem preencher falhas.
+
+Os testes verificam preservação da entrada, distinção entre energia
+zero e ausente, classificação da cobertura, separação de divisões
+e dias, contabilização temporal e rejeição de períodos UTC incompletos.
+
+Ainda não foi definido um critério de seleção de horas para treino.
+Os resultados não demonstram a precisão de um modelo preditivo.
 
 ## 6. Decisões técnicas
 
