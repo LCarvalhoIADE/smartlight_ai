@@ -29,9 +29,16 @@ respeitando a ordem temporal dos dados de treino e teste.
 - Cálculo energético horário implementado e executado para o no1.
 - Processadas 5 734 leituras da sala do no1 relativas a 02/11/2026.
 - Produzidos 24 resumos energéticos horários.
-- 129 testes automáticos aprovados.
 - Treino e avaliação dos modelos ainda pendentes.
 - Aquisição meteorológica automática pela API ainda não implementada.
+- 178 testes automáticos aprovados na execução de 09/11/2026.
+- Aquisição do histórico SmartLight por nó e período, com autenticação
+  pelo cabeçalho X-Chave e paginação.
+- Validação reutilizável do histórico: estrutura, timestamps,
+  duplicados, intervalos e cobertura temporal.
+  - 215 testes automáticos aprovados na execução de 11/11/2026.
+- Estimativa energética por PWM implementada e verificada no no3,
+  com potência de referência assumida e explicitamente identificada.
 
 ## Organização
 
@@ -121,6 +128,115 @@ A tensão assumida e o limite entre leituras são configuráveis:
 ```powershell
 python -m ai.src.calcular_energia --tensao 3.3 --limite-intervalo 30
 ```
+### Adquirir um histórico do servidor
+
+```powershell
+python -m ai.src.adquirir_historico --no no1 --inicio 2026-11-01 --fim 2026-11-08
+```
+
+As datas representam dias completos em UTC, incluindo o dia final.
+
+A chave de leitura ou administração é solicitada de forma oculta.
+Opcionalmente, pode ser obtida da variável de ambiente
+SMARTLIGHT_API_CHAVE. Não deve ser escrita no código ou versionada.
+
+A autenticação utiliza o cabeçalho X-Chave, sem incluir a chave no URL.
+Espaços exteriores da chave são removidos.
+
+O script percorre as páginas, valida o conjunto e guarda o JSON
+em ai/data/raw/. Preserva os metadados do nó e os valores das leituras.
+Recusa substituir ficheiros existentes ou guardar em destinos
+que não estejam ignorados pelo Git.
+
+O parâmetro --destino permite escolher outro ficheiro dentro
+de ai/data/raw/. O parâmetro --limite controla as leituras por página.
+
+### Validar um histórico local
+
+```powershell
+python -m ai.src.validar_historico --origem ai/data/raw/no1_historico_2026-11-01_2026-11-08.json --no no1
+```
+
+Apresenta contagens, valores nulos, intervalos por divisão e cobertura
+temporal segundo um limite provisório de 30 segundos.
+O limite pode ser alterado através de --limite-intervalo.
+
+Não modifica o ficheiro original nem cria ficheiros de saída.
+A cobertura temporal não equivale à cobertura energética.
+
+### Limitações da aquisição
+
+A paginação utiliza OFFSET. Alterações no histórico durante a consulta
+podem afetar a consistência das páginas; o cliente não garante uma
+fotografia imutável da base de dados.
+
+Se ocorrer uma falha, a aquisição é interrompida. Não existe ainda
+retoma automática nem repetição automática dos pedidos.
+
+Os módulos de aquisição e validação não consultam a Open-Meteo.
+A meteorologia já preparada continua associada exclusivamente ao no3.
+
+### Analisar a cobertura energética
+
+```powershell
+python -m ai.src.analisar_cobertura_energia --origem ai/data/raw/no1_historico_2026-11-01_2026-11-08.json --no no1 --detalhes
+```
+
+O módulo reutiliza a validação e o cálculo energético existentes.
+Apresenta resultados por dia UTC e divisão, incluindo horas com
+cobertura completa, parcial ou nula e contagens de correntes ausentes.
+
+Exige um período de dias UTC completos. Não altera os dados,
+não cria ficheiros nem preenche falhas.
+
+Cobertura completa significa 3 600 segundos integrados segundo
+as hipóteses utilizadas; não comprova a precisão física das medições.
+
+### Preparar o alvo energético
+
+```powershell
+python -m ai.src.preparar_alvo_energia --origem ai/data/processed/no1_energia_2026-11-01_2026-11-08.csv --destino ai/data/processed/no1_alvo_energia_2026-11-01_2026-11-08.csv --no no1
+```
+
+Seleciona horas com 3 600 segundos integrados e energia válida.
+Preserva energia zero quando a cobertura é completa.
+
+Valida identificação, timestamps, duplicados, unidades, cobertura
+e consistência das hipóteses de cálculo por divisão.
+
+Horas parciais ou sem cobertura são excluídas, mantendo as lacunas.
+Não preenche dados nem acrescenta meteorologia.
+O CSV original é preservado e o destino não pode existir.
+
+Antes da execução, confirmar que o destino está ignorado pelo Git.
+Este módulo exige um destino dentro de ai/data/processed,
+mas não verifica automaticamente as regras do Git.
+
+A saída contém apenas o alvo energético selecionado,
+não o conjunto completo de treino.
+
+### Estimar energia por PWM
+
+```powershell
+python -m ai.src.estimar_energia_pwm --origem ai/data/raw/no3_historico_2026-11-10_2026-11-10.json --destino ai/data/processed/no3_energia_estimada_2026-11-10.csv --no no3 --divisao sala --potencia-referencia-mw 17.9 --limite-intervalo 30
+```
+
+A potência de referência é obrigatória e representa a potência
+assumida a 100% de PWM, em mW.
+
+O módulo estima potência proporcional a led_pct e integra pelos
+intervalos reais, usando trapézios e divisão nas fronteiras horárias UTC.
+
+Os resultados têm origem estimativa_pwm_potencia_assumida.
+Não são criadas medições de corrente nem preenchidas falhas.
+O ficheiro original é preservado e o destino não pode existir.
+Confirmar que o destino está ignorado pelo Git antes da execução.
+
+A referência de 17,9 mW foi assumida para esta execução do no3;
+não constitui uma calibração desta instalação.
+
+O seletor preparar_alvo_energia.py ainda aceita apenas energia
+obtida de corrente medida com tensão assumida.
 
 ## Entrada e saída
 
@@ -215,15 +331,20 @@ Nesta componente, os testes automáticos verificam:
 - Configuração do limite e rejeição de limites inválidos.
 - Preservação da entrada durante a análise.
 
-Distribuição dos 129 casos de teste:
+Resultado: 235 testes automáticos aprovados.
 
 - 27 de importação TSV.
-- 16 no ficheiro de preparação, incluindo um teste de integração entre importação e preparação.
+- 16 no ficheiro de preparação.
 - 13 de análise de qualidade.
 - 12 de agregação horária.
 - 31 de preparação meteorológica.
 - 15 de cruzamento meteorológico.
 - 15 de cálculo energético.
+- 21 de validação do histórico da API.
+- 22 de aquisição do histórico.
+- 6 de análise da cobertura energética.
+- 38 de preparação do alvo energético.
+- 19 de estimativa energética por PWM.
 
 Estas contagens incluem os casos parametrizados.
 
@@ -249,17 +370,24 @@ e respostas com mais páginas.
 
 ## Próximas etapas
 
-1. Ampliar o histórico energético do no1 e avaliar a cobertura por hora.
-2. Validar a hipótese de integração e o limite temporal configurável.
-3. Implementar e testar a estimativa por PWM dos restantes nós,
-   documentando a potência de referência aplicável a cada instalação.
-4. Integrar os restantes nós considerando localização, divisão,
-   unidades, alterações de sensores e anomalias conhecidas.
-5. Obter meteorologia para a localização e período de cada nó
-   e preparar a aquisição de previsões disponíveis no instante de emissão.
-6. Formalizar com o grupo a emissão às 20h locais para o dia civil seguinte,
-   com resultados horários e total diário.
-7. Comparar referência histórica, Regressão Linear e Random Forest
-   quando existir histórico adequado, usando MAE e avaliação temporal.
-8. Acordar e testar o envio, armazenamento e apresentação das previsões
-   com os responsáveis pela API e pelo dashboard.
+### Fase 1 — Infraestrutura e preparação dos dados
+
+1. Consolidar a seleção dos alvos energéticos, os testes e a documentação.
+2. Generalizar o processamento por nó e divisão, preservando diferenças
+   de sensores, unidades, localização e fuso horário.
+3. Implementar e validar a estimativa energética dos nós sem corrente
+   medida, identificando a origem e a potência de referência aplicável.
+4. Integrar meteorologia para a localização e período de cada nó.
+   Os dados meteorológicos atuais pertencem exclusivamente ao no3.
+5. Preparar a aquisição e preservação de previsões meteorológicas,
+   incluindo o instante de aquisição e a informação de emissão disponível.
+6. Construir e validar o conjunto final de dados, distinguindo alvos,
+   variáveis explicativas, cobertura e disponibilidade temporal.
+7. Rever os critérios de conclusão da Fase 1 antes de iniciar previsões.
+
+### Fase 2 — Previsão e avaliação, ainda não iniciada
+
+1. Implementar a referência simples documentada.
+2. Implementar Regressão Linear e Random Forest.
+3. Avaliar com MAE, separação temporal e controlo de informação futura.
+4. Integrar as previsões com a API e o dashboard.

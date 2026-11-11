@@ -45,6 +45,7 @@ Níveis: **U** unitário (um ficheiro da API isolado), **I** integração (nó, 
 | T35 | 04/11/2026 | RF-S04 | U | `POST` com duas divisões em que a primeira é válida (`sala`) e a segunda tem `led_pct` igual a 150 | Resposta 422 e nenhuma das divisões guardada | 422, `{"erro":"divisao invalida"}`. A contagem de leituras desse `boot_id` na base de dados é 0. Antes da correção, a primeira divisão ficava guardada |
 | T36 | 04/11/2026 | RF-S02 | S | Depois de instalar o `leituras.php` novo, tempo desde a última leitura de cada divisão ativa | Leituras recentes nos quatro nós | 2 a 14 s no no1, no2, no3 e no4 |
 | T37 | 04/11/2026 | RF-S17 | I | `GET` a `nos.php` com a chave de leitura e depois sem chave | Lista dos 4 nós com `fuso`, `pais`, `latitude` e `longitude` com a chave e resposta 403 sem ela | Os 4 nós com os campos esperados (no2 com `Europe/Zurich` e `CH`). Sem chave, 403 `sem acesso` |
+| T53 | 10/11/2026 | RNF-F03 | S | Correr `infra/backup_db.sh`, restaurar a cópia numa base temporária e comparar o número de leituras com o da base em produção | Cópia criada e restauro completo, com o mesmo número de leituras | Cópia de 4,7 MB. Restauro com 412 347 leituras contra 412 360 na base em produção (as 13 a mais chegaram entre a cópia e a contagem). Cópia diária agendada às 03:30 e copiada para um computador do grupo com `scp` |
 
 ## Testes por fazer
 
@@ -70,4 +71,4 @@ Níveis: **U** unitário (um ficheiro da API isolado), **I** integração (nó, 
 
 - Os testes T05, T09 e T10 não foram provocados. Foram falhas do servidor e os resultados foram verificados nos dados guardados.
 - As datas e os intervalos estão em hora de Lisboa. Na base de dados, o `ts` está em UTC.
-- A 04/11/2026 foi feita uma cópia da base de dados com `mysqldump` (21 MB) e criado o índice `idx_no_div_id (no_id, divisao, id)`, usado pelo `ultimas.php?por_divisao=1`. O índice `idx_no_ts (no_id, ts)`, usado pelo `historico.php`, já existia. A cópia foi feita à mão e o restauro não foi testado, por isso o RNF-F03 continua por cumprir.
+- A 04/11/2026 foi feita uma cópia da base de dados com `mysqldump` (21 MB) e criado o índice `idx_no_div_id (no_id, divisao, id)`, usado pelo `ultimas.php?por_divisao=1`. O índice `idx_no_ts (no_id, ts)`, usado pelo `historico.php`, já existia. Essa cópia foi feita à mão e o restauro não foi testado. A 10/11/2026 passou a haver uma cópia diária automática, com o restauro testado (T53).
