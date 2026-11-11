@@ -175,7 +175,7 @@ e verificações manuais com dados reais.
 | RF-IA-13 | 21 casos automáticos de validação e execução com históricos reais do no1 | Testes aprovados e resumos apresentados |
 | RNF-IA-02 | Preservação da entrada nas funções preparar e analisar | Testes aprovados |
 
-Resultado: 178 testes automáticos aprovados.
+Resultado: 196 testes automáticos aprovados.
 
 - 27 de importação TSV.
 - 16 no ficheiro de preparação.
@@ -187,6 +187,7 @@ Resultado: 178 testes automáticos aprovados.
 - 21 de validação do histórico da API.
 - 22 de aquisição do histórico.
 - 6 de análise da cobertura energética.
+- 18 de preparação do alvo energético.
 
 As contagens incluem os casos parametrizados.
 Um dos testes de preparação verifica a integração entre importar_tsv
@@ -384,6 +385,30 @@ e dias, contabilização temporal e rejeição de períodos UTC incompletos.
 
 Ainda não foi definido um critério de seleção de horas para treino.
 Os resultados não demonstram a precisão de um modelo preditivo.
+
+### Preparação do alvo energético em 10/11/2026
+
+Módulo: ai/src/preparar_alvo_energia.py.
+Testes: ai/tests/test_preparar_alvo_energia.py.
+
+- 18 testes do módulo aprovados.
+- Suite completa com 196 testes aprovados.
+- Entrada: 192 resumos horários do no1, de 01 a 08/11/2026.
+- 176 horas aceites.
+- Três horas excluídas por cobertura parcial.
+- 13 horas excluídas por ausência de cobertura energética.
+- CSV de saída confirmado como ignorado pelo Git.
+
+O critério inicial exige 3 600 segundos integrados e energia válida.
+Energia zero com cobertura completa é aceite.
+As lacunas e os timestamps são preservados.
+
+A cobertura completa não garante precisão física.
+A seleção pode favorecer períodos com melhor qualidade de recolha;
+esse efeito deverá ser considerado na avaliação dos modelos.
+
+Não foram acrescentadas variáveis meteorológicas nem treinados modelos.
+O resultado constitui o alvo energético, não o conjunto completo de treino.
 
 ## 6. Decisões técnicas
 

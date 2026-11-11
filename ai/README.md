@@ -189,6 +189,29 @@ não cria ficheiros nem preenche falhas.
 Cobertura completa significa 3 600 segundos integrados segundo
 as hipóteses utilizadas; não comprova a precisão física das medições.
 
+### Preparar o alvo energético
+
+```powershell
+python -m ai.src.preparar_alvo_energia --origem ai/data/processed/no1_energia_2026-11-01_2026-11-08.csv --destino ai/data/processed/no1_alvo_energia_2026-11-01_2026-11-08.csv --no no1
+```
+
+Seleciona horas com 3 600 segundos integrados e energia válida.
+Preserva energia zero quando a cobertura é completa.
+
+Valida identificação, timestamps, duplicados, unidades, cobertura
+e consistência das hipóteses de cálculo por divisão.
+
+Horas parciais ou sem cobertura são excluídas, mantendo as lacunas.
+Não preenche dados nem acrescenta meteorologia.
+O CSV original é preservado e o destino não pode existir.
+
+Antes da execução, confirmar que o destino está ignorado pelo Git.
+Este módulo exige um destino dentro de ai/data/processed,
+mas não verifica automaticamente as regras do Git.
+
+A saída contém apenas o alvo energético selecionado,
+não o conjunto completo de treino.
+
 ## Entrada e saída
 
 Caminhos relativos à raiz do repositório:
@@ -282,7 +305,7 @@ Nesta componente, os testes automáticos verificam:
 - Configuração do limite e rejeição de limites inválidos.
 - Preservação da entrada durante a análise.
 
-Distribuição dos 178 casos de teste:
+Distribuição dos 196 casos de teste:
 
 - 27 de importação TSV.
 - 16 no ficheiro de preparação, incluindo um teste de integração entre importação e preparação.
@@ -294,6 +317,7 @@ Distribuição dos 178 casos de teste:
 - 21 de validação do histórico da API.
 - 22 de aquisição do histórico.
 - 6 de análise da cobertura energética.
+- 18 de preparação do alvo energético.
 
 Estas contagens incluem os casos parametrizados.
 
