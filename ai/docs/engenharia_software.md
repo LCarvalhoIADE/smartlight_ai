@@ -175,7 +175,7 @@ e verificações manuais com dados reais.
 | RF-IA-13 | 21 casos automáticos de validação e execução com históricos reais do no1 | Testes aprovados e resumos apresentados |
 | RNF-IA-02 | Preservação da entrada nas funções preparar e analisar | Testes aprovados |
 
-Resultado: 172 testes automáticos aprovados.
+Resultado: 235 testes automáticos aprovados.
 
 - 27 de importação TSV.
 - 16 no ficheiro de preparação.
@@ -186,6 +186,9 @@ Resultado: 172 testes automáticos aprovados.
 - 15 de cálculo energético.
 - 21 de validação do histórico da API.
 - 22 de aquisição do histórico.
+- 6 de análise da cobertura energética.
+- 38 de preparação do alvo energético.
+- 19 de estimativa energética por PWM.
 
 As contagens incluem os casos parametrizados.
 Um dos testes de preparação verifica a integração entre importar_tsv
@@ -357,6 +360,102 @@ As possíveis diferenças de metodologia a verificar incluem:
 Sem consultar o cálculo do T20, não é possível atribuir a diferença
 a uma causa específica nem concluir qual resultado é mais preciso.
 
+### Análise da cobertura energética em 09/11/2026
+
+Módulo: ai/src/analisar_cobertura_energia.py.
+Testes: ai/tests/test_analisar_cobertura_energia.py.
+
+- Seis testes do módulo aprovados; suite completa com 178 testes.
+- Histórico analisado: no1, sala, de 01 a 08/11/2026.
+- 176 horas com cobertura energética completa.
+- Três horas com cobertura parcial.
+- 13 horas sem cobertura energética.
+- As 2 976 correntes ausentes concentram-se em 01/11.
+- Cobertura energética de 01/11: 44,1019%.
+- Dias 02–07/11: cobertura de 100% segundo as regras de integração.
+- Dia 08/11: cobertura de 99,9884%, com dez segundos finais sem intervalo.
+
+O histórico alargado permite integrar intervalos que atravessam
+a meia-noite, utilizando leituras dos dias adjacentes. Isto explica
+a cobertura de 100% em 02/11, superior à obtida com o ficheiro
+isolado desse dia, sem extrapolar nem preencher falhas.
+
+Os testes verificam preservação da entrada, distinção entre energia
+zero e ausente, classificação da cobertura, separação de divisões
+e dias, contabilização temporal e rejeição de períodos UTC incompletos.
+
+Ainda não foi definido um critério de seleção de horas para treino.
+Os resultados não demonstram a precisão de um modelo preditivo.
+
+### Preparação do alvo energético em 10/11/2026
+
+Módulo: ai/src/preparar_alvo_energia.py.
+Testes: ai/tests/test_preparar_alvo_energia.py.
+
+- 18 testes do módulo aprovados.
+- Suite completa com 196 testes aprovados.
+- Entrada: 192 resumos horários do no1, de 01 a 08/11/2026.
+- 176 horas aceites.
+- Três horas excluídas por cobertura parcial.
+- 13 horas excluídas por ausência de cobertura energética.
+- CSV de saída confirmado como ignorado pelo Git.
+
+O critério inicial exige 3 600 segundos integrados e energia válida.
+Energia zero com cobertura completa é aceite.
+As lacunas e os timestamps são preservados.
+
+A cobertura completa não garante precisão física.
+A seleção pode favorecer períodos com melhor qualidade de recolha;
+esse efeito deverá ser considerado na avaliação dos modelos.
+
+Não foram acrescentadas variáveis meteorológicas nem treinados modelos.
+O resultado constitui o alvo energético, não o conjunto completo de treino.
+
+### Estimativa energética do no3 em 11/11/2026
+
+Módulo: ai/src/estimar_energia_pwm.py.
+Testes: ai/tests/test_estimar_energia_pwm.py.
+
+- 19 testes do módulo aprovados.
+- Suite completa com 215 testes aprovados.
+- Histórico: no3, sala, dia 10/11/2026.
+- Potência de referência assumida: 17,9 mW a 100% de PWM.
+- Limite provisório entre leituras: 30 segundos.
+- 24 resumos horários.
+- 86 387 segundos integrados.
+- Zero segundos excluídos entre leituras.
+- 13 segundos finais sem estimativa.
+- Energia estimada nos intervalos integrados: 81,758250 mWh.
+- CSV confirmado como ignorado pelo Git.
+
+A potência é assumida proporcional a led_pct.
+A integração utiliza trapézios e reparte os intervalos pelas horas UTC.
+
+A referência provém do circuito do no1 e não foi calibrada no no3.
+Os resultados são identificados como estimativa_pwm_potencia_assumida,
+distinguindo-os dos obtidos de corrente medida.
+
+Os testes verificam o comportamento matemático e estrutural do módulo;
+não validam a precisão física da potência assumida.
+
+A preparação de alvos estimados ainda não está implementada.
+Não foram utilizados dados meteorológicos nem treinados modelos.
+
+### Seleção de alvos estimados em 11/11/2026
+
+- 38 testes do seletor aprovados.
+- Suite completa com 235 testes aprovados.
+- Entrada: 24 resumos estimados do no3, sala, de 10/11/2026.
+- 23 horas aceites e uma hora parcial excluída.
+- Origem preservada: estimativa_pwm_potencia_assumida.
+- Potência de referência assumida: 17,9 mW.
+- tensao_assumida_v permanece vazia.
+- CSV confirmado como ignorado pelo Git.
+
+Os alvos anteriormente gerados para o no1 não foram substituídos.
+A seleção não transforma estimativas em medições físicas.
+Não foi acrescentada meteorologia nem iniciado treino de modelos.
+
 ## 6. Decisões técnicas
 
 - Usar ficheiros locais enquanto a integração definitiva não existe.
@@ -382,6 +481,93 @@ a uma causa específica nem concluir qual resultado é mais preciso.
   disponível no instante de emissão da previsão.
 - Não interpretar radiação exterior em W/m² como luminosidade
   interior em lux nem como consumo elétrico.
+
+### Planeamento das fases e referência simples — 11/11/2026
+
+A prioridade é concluir a Fase 1: infraestrutura e preparação dos dados.
+A implementação do baseline e dos modelos pertence à Fase 2.
+
+A emissão às 20h locais de cada instalação permanece uma referência
+funcional proposta, pendente de formalização com o grupo.
+O período previsto é o dia civil local seguinte completo.
+
+Regra planeada para o baseline:
+- Para cada intervalo previsto, utilizar a ocorrência histórica válida
+  mais recente da mesma hora local, disponível antes da emissão.
+- Exigir cobertura energética completa segundo o critério inicial.
+- Aplicar uma margem configurável para atrasos de chegada dos dados.
+- O valor dessa margem será definido com base nos atrasos observados
+  e no funcionamento do servidor, antes da implementação.
+- Na ausência de histórico elegível, assinalar previsão indisponível,
+  sem substituir por zero.
+
+Disponibilidade temporal:
+- Uma hora só é elegível se estiver concluída antes do instante
+  de emissão menos a margem de atraso.
+- Todas as leituras necessárias ao cálculo dessa hora, incluindo
+  a leitura que fecha o intervalo, devem estar disponíveis.
+- O timestamp de medição não comprova quando a leitura chegou ao servidor.
+- Na ausência de timestamps de receção ou de versões históricas dos dados,
+  a disponibilidade passada não pode ser reconstruída com exatidão.
+  A margem será uma hipótese documentada, não uma garantia.
+
+Mudanças de hora:
+- Definir o dia previsto entre duas meias-noites locais consecutivas,
+  utilizando o fuso horário do nó.
+- Representar os intervalos internamente em UTC.
+- Produzir 23, 24 ou 25 intervalos horários conforme a duração desse dia.
+- Não criar a hora local inexistente na mudança para a hora de verão.
+- Distinguir as horas locais repetidas pelo instante UTC e desvio horário.
+- Cada intervalo repetido terá uma previsão própria; a regra simples
+  poderá reutilizar o mesmo valor histórico para ambos.
+- A correspondência entre horas locais será testada antes da implementação.
+
+A avaliação utilizará alvos válidos e apresentará a quantidade de
+intervalos previstos, indisponíveis e efetivamente avaliados.
+
+Esta decisão documenta o comportamento futuro.
+Não inicia a implementação de módulos de previsão.
+
+### Configuração do no3 confirmada em 11/11/2026
+
+- Divisão monitorizada: sala.
+- Um LED ligado ao GPIO18, com resistência de 220 Ω em série
+  e retorno ao GND.
+- Sensor digital de luminosidade: GPIO26.
+- Sensor PIR de presença: GPIO27.
+- Sem sensor infravermelho de obstáculos instalado.
+- Sem INA219 e sem corrente elétrica medida.
+- Fuso horário: Europe/Lisbon.
+
+O sensor digital fornece luz_raw. A ausência de luz_pct não representa
+luminosidade zero. O PIR fornece a indicação de presença.
+
+Esta confirmação descreve a configuração atual; não estabelece
+automaticamente a data de início dessa configuração no histórico.
+Não implica alterações ao firmware ou aos GPIO.
+
+### Hipóteses da estimativa energética do no3
+
+Utilizar uma potência de referência configurável a 100% de PWM,
+assumindo proporcionalidade com led_pct:
+
+potencia_estimada_mW = potencia_referencia_mW × led_pct / 100
+
+A referência inicial proposta é 17,9 mW, proveniente do circuito
+de referência do no1. A sua aplicação ao no3 constitui uma hipótese
+não calibrada nesta instalação.
+
+Integrar a potência estimada usando os intervalos reais entre leituras,
+preservando as regras de divisão horária e controlo de cobertura.
+
+Identificar a origem como estimativa_pwm_potencia_assumida e conservar
+a potência de referência utilizada nos resultados.
+
+Não preencher corrente_ma com valores inventados nem apresentar
+a energia estimada como energia obtida de corrente medida.
+
+Implementada em estimar_energia_pwm.py e verificada em 11/11/2026.
+A potência assumida continua sem calibração específica no no3.
 
 ## 7. Dependências e responsabilidades
 
@@ -466,11 +652,25 @@ Os resultados dos testes devem acompanhar as alterações de código.
 
 ## 10. Próximas etapas
 
-1. Ampliar o histórico energético do no1 e avaliar a cobertura por hora.
-2. Validar a hipótese de integração e o limite temporal configurável.
-3. Implementar e testar a estimativa por PWM dos restantes nós, documentando a potência de referência aplicável a cada instalação.
-4. Integrar os restantes nós considerando localização, divisão, unidades, alterações de sensores e anomalias conhecidas.
-5. Obter meteorologia para a localização e período de cada nó e preparar a aquisição de previsões disponíveis no instante de emissão.
-6. Formalizar com o grupo a emissão às 20h locais para o dia civil seguinte, com resultados horários e total diário.
-7. Comparar referência histórica, Regressão Linear e Random Forest quando existir histórico adequado, usando MAE e avaliação temporal.
-8. Acordar e testar o envio, armazenamento e apresentação das previsões com os responsáveis pela API e pelo dashboard.
+### Fase 1 — Infraestrutura e preparação dos dados
+
+1. Consolidar a seleção dos alvos energéticos, os testes e a documentação.
+2. Generalizar o processamento por nó e divisão, preservando diferenças
+   de sensores, unidades, localização e fuso horário.
+3. Alargar a estimativa por PWM, já implementada e verificada no no3,
+   aos restantes nós sem corrente medida, confirmando a potência
+   de referência de cada instalação e preparando os alvos estimados.
+4. Integrar meteorologia para a localização e período de cada nó.
+   Os dados meteorológicos atuais pertencem exclusivamente ao no3.
+5. Preparar a aquisição e preservação de previsões meteorológicas,
+   incluindo o instante de aquisição e a informação de emissão disponível.
+6. Construir e validar o conjunto final de dados, distinguindo alvos,
+   variáveis explicativas, cobertura e disponibilidade temporal.
+7. Rever os critérios de conclusão da Fase 1 antes de iniciar previsões.
+
+### Fase 2 — Previsão e avaliação, ainda não iniciada
+
+1. Implementar a referência simples documentada.
+2. Implementar Regressão Linear e Random Forest.
+3. Avaliar com MAE, separação temporal e controlo de informação futura.
+4. Integrar as previsões com a API e o dashboard.
