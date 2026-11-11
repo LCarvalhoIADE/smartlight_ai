@@ -36,6 +36,9 @@ respeitando a ordem temporal dos dados de treino e teste.
   pelo cabeçalho X-Chave e paginação.
 - Validação reutilizável do histórico: estrutura, timestamps,
   duplicados, intervalos e cobertura temporal.
+  - 215 testes automáticos aprovados na execução de 11/11/2026.
+- Estimativa energética por PWM implementada e verificada no no3,
+  com potência de referência assumida e explicitamente identificada.
 
 ## Organização
 
@@ -212,6 +215,29 @@ mas não verifica automaticamente as regras do Git.
 A saída contém apenas o alvo energético selecionado,
 não o conjunto completo de treino.
 
+### Estimar energia por PWM
+
+```powershell
+python -m ai.src.estimar_energia_pwm --origem ai/data/raw/no3_historico_2026-11-10_2026-11-10.json --destino ai/data/processed/no3_energia_estimada_2026-11-10.csv --no no3 --divisao sala --potencia-referencia-mw 17.9 --limite-intervalo 30
+```
+
+A potência de referência é obrigatória e representa a potência
+assumida a 100% de PWM, em mW.
+
+O módulo estima potência proporcional a led_pct e integra pelos
+intervalos reais, usando trapézios e divisão nas fronteiras horárias UTC.
+
+Os resultados têm origem estimativa_pwm_potencia_assumida.
+Não são criadas medições de corrente nem preenchidas falhas.
+O ficheiro original é preservado e o destino não pode existir.
+Confirmar que o destino está ignorado pelo Git antes da execução.
+
+A referência de 17,9 mW foi assumida para esta execução do no3;
+não constitui uma calibração desta instalação.
+
+O seletor preparar_alvo_energia.py ainda aceita apenas energia
+obtida de corrente medida com tensão assumida.
+
 ## Entrada e saída
 
 Caminhos relativos à raiz do repositório:
@@ -305,10 +331,10 @@ Nesta componente, os testes automáticos verificam:
 - Configuração do limite e rejeição de limites inválidos.
 - Preservação da entrada durante a análise.
 
-Distribuição dos 196 casos de teste:
+Resultado: 235 testes automáticos aprovados.
 
 - 27 de importação TSV.
-- 16 no ficheiro de preparação, incluindo um teste de integração entre importação e preparação.
+- 16 no ficheiro de preparação.
 - 13 de análise de qualidade.
 - 12 de agregação horária.
 - 31 de preparação meteorológica.
@@ -317,7 +343,8 @@ Distribuição dos 196 casos de teste:
 - 21 de validação do histórico da API.
 - 22 de aquisição do histórico.
 - 6 de análise da cobertura energética.
-- 18 de preparação do alvo energético.
+- 38 de preparação do alvo energético.
+- 19 de estimativa energética por PWM.
 
 Estas contagens incluem os casos parametrizados.
 
@@ -343,17 +370,24 @@ e respostas com mais páginas.
 
 ## Próximas etapas
 
-1. Ampliar o histórico energético do no1 e avaliar a cobertura por hora.
-2. Validar a hipótese de integração e o limite temporal configurável.
-3. Implementar e testar a estimativa por PWM dos restantes nós,
-   documentando a potência de referência aplicável a cada instalação.
-4. Integrar os restantes nós considerando localização, divisão,
-   unidades, alterações de sensores e anomalias conhecidas.
-5. Obter meteorologia para a localização e período de cada nó
-   e preparar a aquisição de previsões disponíveis no instante de emissão.
-6. Formalizar com o grupo a emissão às 20h locais para o dia civil seguinte,
-   com resultados horários e total diário.
-7. Comparar referência histórica, Regressão Linear e Random Forest
-   quando existir histórico adequado, usando MAE e avaliação temporal.
-8. Acordar e testar o envio, armazenamento e apresentação das previsões
-   com os responsáveis pela API e pelo dashboard.
+### Fase 1 — Infraestrutura e preparação dos dados
+
+1. Consolidar a seleção dos alvos energéticos, os testes e a documentação.
+2. Generalizar o processamento por nó e divisão, preservando diferenças
+   de sensores, unidades, localização e fuso horário.
+3. Implementar e validar a estimativa energética dos nós sem corrente
+   medida, identificando a origem e a potência de referência aplicável.
+4. Integrar meteorologia para a localização e período de cada nó.
+   Os dados meteorológicos atuais pertencem exclusivamente ao no3.
+5. Preparar a aquisição e preservação de previsões meteorológicas,
+   incluindo o instante de aquisição e a informação de emissão disponível.
+6. Construir e validar o conjunto final de dados, distinguindo alvos,
+   variáveis explicativas, cobertura e disponibilidade temporal.
+7. Rever os critérios de conclusão da Fase 1 antes de iniciar previsões.
+
+### Fase 2 — Previsão e avaliação, ainda não iniciada
+
+1. Implementar a referência simples documentada.
+2. Implementar Regressão Linear e Random Forest.
+3. Avaliar com MAE, separação temporal e controlo de informação futura.
+4. Integrar as previsões com a API e o dashboard.
