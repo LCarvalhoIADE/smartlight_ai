@@ -1,5 +1,9 @@
 """
-Prepara o alvo energético a partir do CSV de energia horária.
+Prepara o alvo energético a partir de resumos horários.
+
+Origens suportadas:
+- Corrente medida com tensão assumida.
+- Estimativa por PWM com potência de referência assumida.
 
 Critério inicial:
 - Aceitar apenas horas com 3 600 segundos integrados.
@@ -19,7 +23,25 @@ from pathlib import Path
 
 AI_DIR = Path(__file__).resolve().parents[1]
 
-# Mantemos as unidades e as hipóteses utilizadas no cálculo.
+ORIGEM_CORRENTE = "corrente_medida_tensao_assumida"
+ORIGEM_PWM = "estimativa_pwm_potencia_assumida"
+
+# Campos exigidos para ambas as origens.
+CAMPOS_COMUNS = (
+    "no_id",
+    "divisao",
+    "hora_utc",
+    "energia_mWh",
+    "energia_Wh",
+    "segundos_integrados",
+    "segundos_excluidos",
+    "cobertura_proporcao",
+    "limite_intervalo_segundos",
+    "origem_energia",
+)
+
+# A saída conserva as duas referências possíveis.
+# A referência que não se aplica fica None, ou vazia no CSV.
 CAMPOS_SAIDA = (
     "no_id",
     "divisao",
@@ -30,13 +52,21 @@ CAMPOS_SAIDA = (
     "segundos_excluidos",
     "cobertura_proporcao",
     "tensao_assumida_v",
+    "potencia_referencia_mW",
     "limite_intervalo_segundos",
     "origem_energia",
 )
 
 
+def ausente(valor):
+    """Reconhece ausência sem confundir o valor zero com uma célula vazia."""
+    return valor is None or (
+        isinstance(valor, str) and not valor.strip()
+    )
+
+
 def numero(valor, campo):
-    """Converte um valor numérico e rejeita booleanos, ausências e infinitos."""
+    """Converte um número e rejeita booleanos, ausências e infinitos."""
     if isinstance(valor, bool) or valor is None:
         raise ValueError(f"{campo}: valor numérico inválido.")
 
@@ -62,8 +92,8 @@ def segundos(valor, campo):
 
 
 def energia_opcional(valor, campo):
-    """Distingue uma célula vazia de uma medição de energia igual a zero."""
-    if valor is None or (isinstance(valor, str) and not valor.strip()):
+    """Distingue energia ausente de energia calculada igual a zero."""
+    if ausente(valor):
         return None
 
     convertido = numero(valor, campo)
@@ -74,11 +104,54 @@ def energia_opcional(valor, campo):
     return convertido
 
 
+def validar_referencia(linha):
+    """
+    Valida a referência exigida pela origem energética.
+
+    Não converte potência em tensão nem cria valores para campos
+    que não pertencem ao método de cálculo.
+    """
+    origem = linha["origem_energia"]
+
+    if origem == ORIGEM_CORRENTE:
+        campo_obrigatorio = "tensao_assumida_v"
+        campo_nao_aplicavel = "potencia_referencia_mW"
+    elif origem == ORIGEM_PWM:
+        campo_obrigatorio = "potencia_referencia_mW"
+        campo_nao_aplicavel = "tensao_assumida_v"
+    else:
+        raise ValueError("Origem energética não suportada.")
+
+    if campo_obrigatorio not in linha:
+        raise ValueError(
+            f"Falta o campo obrigatório {campo_obrigatorio}."
+        )
+
+    referencia = numero(linha[campo_obrigatorio], campo_obrigatorio)
+
+    if referencia <= 0:
+        raise ValueError(
+            f"{campo_obrigatorio}: a referência deve ser positiva."
+        )
+
+    # Aceita a coluna não aplicável ausente ou vazia.
+    # Um valor preenchido seria ambíguo e não deve ser descartado.
+    if not ausente(linha.get(campo_nao_aplicavel)):
+        raise ValueError(
+            f"{campo_nao_aplicavel}: campo não aplicável à origem."
+        )
+
+    if origem == ORIGEM_CORRENTE:
+        return referencia, None
+
+    return None, referencia
+
+
 def selecionar_alvo(linhas, no_esperado):
     """
     Valida os resumos e seleciona as horas energeticamente completas.
 
-    Dados estruturalmente inválidos interrompem o processamento.
+    Estruturas inválidas interrompem o processamento.
     Horas válidas mas incompletas são excluídas e contabilizadas.
     A entrada permanece inalterada.
     """
@@ -97,7 +170,7 @@ def selecionar_alvo(linhas, no_esperado):
         if not isinstance(linha, dict):
             raise ValueError(f"Linha {indice}: formato inválido.")
 
-        if not set(CAMPOS_SAIDA).issubset(linha):
+        if not set(CAMPOS_COMUNS).issubset(linha):
             raise ValueError(f"Linha {indice}: faltam campos.")
 
         if linha["no_id"] != no_esperado:
@@ -144,7 +217,7 @@ def selecionar_alvo(linhas, no_esperado):
         if integrados + excluidos > 3600:
             raise ValueError(f"Linha {indice}: duração superior a uma hora.")
 
-        # Confirma que a percentagem corresponde aos segundos integrados.
+        # A cobertura declarada deve corresponder aos segundos integrados.
         if not 0 <= cobertura <= 1 or not math.isclose(
             cobertura,
             integrados / 3600,
@@ -156,7 +229,6 @@ def selecionar_alvo(linhas, no_esperado):
         energia_mwh = energia_opcional(linha["energia_mWh"], "energia_mWh")
         energia_wh = energia_opcional(linha["energia_Wh"], "energia_Wh")
 
-        # As duas unidades devem estar simultaneamente presentes ou ausentes.
         if (energia_mwh is None) != (energia_wh is None):
             raise ValueError(f"Linha {indice}: unidades energéticas incompletas.")
 
@@ -168,32 +240,32 @@ def selecionar_alvo(linhas, no_esperado):
         ):
             raise ValueError(f"Linha {indice}: unidades energéticas incoerentes.")
 
-        # O produtor atual só calcula energia quando integra algum tempo.
+        # Ambos os produtores só calculam energia quando integram tempo.
         if (integrados == 0) != (energia_mwh is None):
             raise ValueError(
                 f"Linha {indice}: energia incompatível com o tempo integrado."
             )
 
-        tensao = numero(linha["tensao_assumida_v"], "tensao_assumida_v")
         limite = numero(
-            linha["limite_intervalo_segundos"], "limite_intervalo_segundos"
+            linha["limite_intervalo_segundos"],
+            "limite_intervalo_segundos",
         )
 
-        if tensao <= 0 or limite <= 0:
-            raise ValueError(f"Linha {indice}: hipótese de cálculo inválida.")
+        if limite <= 0:
+            raise ValueError(f"Linha {indice}: limite temporal inválido.")
 
+        tensao, potencia = validar_referencia(linha)
         origem = linha["origem_energia"]
-        if origem != "corrente_medida_tensao_assumida":
-            raise ValueError(
-                f"Linha {indice}: origem energética ainda não suportada."
-            )
 
-        # Não mistura configurações de cálculo na mesma divisão.
-        configuracao = (tensao, limite, origem)
+        # Uma divisão não pode misturar origens ou configurações neste lote.
+        # Mudanças de configuração exigem tratamento por períodos separados.
+        configuracao = (origem, tensao, potencia, limite)
+
         if divisao in hipoteses and hipoteses[divisao] != configuracao:
             raise ValueError(
                 f"Linha {indice}: hipóteses diferentes na mesma divisão."
             )
+
         hipoteses[divisao] = configuracao
 
         if integrados == 0:
@@ -204,7 +276,7 @@ def selecionar_alvo(linhas, no_esperado):
             exclusoes["cobertura_parcial"] += 1
             continue
 
-        # Cria um registo independente e preserva os instantes originais.
+        # Cria um novo registo, mantendo a origem e a referência aplicável.
         aceites.append({
             "no_id": no_esperado,
             "divisao": divisao,
@@ -215,6 +287,7 @@ def selecionar_alvo(linhas, no_esperado):
             "segundos_excluidos": excluidos,
             "cobertura_proporcao": cobertura,
             "tensao_assumida_v": tensao,
+            "potencia_referencia_mW": potencia,
             "limite_intervalo_segundos": limite,
             "origem_energia": origem,
         })
@@ -265,9 +338,14 @@ def main():
 
         linhas = list(leitor)
 
-        # DictReader usa a chave None quando uma linha tem campos a mais.
-        if any(None in linha for linha in linhas):
-            raise ValueError("Existem linhas com campos adicionais.")
+        # Campos a mais produzem a chave None.
+        # Campos a menos produzem valores None; no CSV, uma célula
+        # intencionalmente vazia é representada por uma string vazia.
+        if any(
+            None in linha or any(valor is None for valor in linha.values())
+            for linha in linhas
+        ):
+            raise ValueError("Existem linhas com número incorreto de campos.")
 
     resultado = selecionar_alvo(linhas, opcoes.no)
 
@@ -277,17 +355,24 @@ def main():
     destino.parent.mkdir(parents=True, exist_ok=True)
 
     # O modo x impede substituir um resultado anterior.
+    # None é escrito como uma célula vazia.
     with destino.open("x", encoding="utf-8", newline="") as ficheiro:
         escritor = csv.DictWriter(ficheiro, fieldnames=CAMPOS_SAIDA)
         escritor.writeheader()
         escritor.writerows(resultado["aceites"])
 
+    origens = sorted({
+        linha["origem_energia"] for linha in resultado["aceites"]
+    })
+
     print(f"Resumos analisados: {resultado['total']}")
     print(f"Horas aceites: {len(resultado['aceites'])}")
     print(f"Excluídas por cobertura parcial: {resultado['excluidas_parciais']}")
     print(f"Excluídas sem cobertura: {resultado['excluidas_sem_cobertura']}")
+    print(f"Origens preservadas: {', '.join(origens)}")
     print(f"CSV guardado em: {destino}")
     print("Critério inicial: 3 600 segundos integrados por hora.")
+    print("Referências não aplicáveis ficam vazias.")
     print("Lacunas preservadas. Sem meteorologia nem treino de modelos.")
 
 
