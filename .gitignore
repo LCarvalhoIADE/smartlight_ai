@@ -43,10 +43,6 @@ dist/
 *.log
 *.tmp
 
-config.h
-ai/data/raw/
-ai/data/processed/
-
 # Cópias de segurança da base de dados
 backups/
 *.sql.gz
