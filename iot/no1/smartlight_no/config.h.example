@@ -9,3 +9,6 @@
 #define SENSOR_LUZ 0
 #define USAR_HTTPS 1
 #define DIVISAO "sala"
+
+// Ecrã OLED I2C. 0 desligado e 1 ligado
+#define USAR_OLED 0

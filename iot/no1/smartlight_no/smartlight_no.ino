@@ -1,12 +1,17 @@
-// SmartLight, firmware do nó 1, versão 1.
+// SmartLight, firmware do nó 1, versão 2 com ecrã OLED e limites de luz no config.h.
 // Lê a presença e a luz, controla o LED e envia as leituras por HTTPS, com fila quando não há ligação.
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <time.h>
 #include "config.h"
-#if SENSOR_LUZ == 0
+#ifndef USAR_OLED
+#define USAR_OLED 0
+#endif
+#if SENSOR_LUZ == 0 || USAR_OLED
 #include <Wire.h>
+#endif
+#if SENSOR_LUZ == 0
 #include <BH1750.h>
 BH1750 sensorLuz;
 #endif
@@ -14,7 +19,6 @@ BH1750 sensorLuz;
 #ifndef USAR_HTTPS
 #define USAR_HTTPS 0
 #endif
-// Pinos por omissão para o ESP32 DevKit V1. Para outra placa, definir no config.h.
 #ifndef PIN_PIR
 #define PIN_PIR 27
 #endif
@@ -36,6 +40,41 @@ BH1750 sensorLuz;
 #ifndef PIN_SCL
 #define PIN_SCL 22
 #endif
+
+// Limites da regra de luz. Acima de *_APAGA o LED fica apagado. Com menos luz passa por 40%, 70% e 100%.
+#ifndef LUX_APAGA
+#define LUX_APAGA 300
+#endif
+#ifndef LUX_40
+#define LUX_40 150
+#endif
+#ifndef LUX_70
+#define LUX_70 50
+#endif
+#ifndef ANA_APAGA
+#define ANA_APAGA 3000
+#endif
+#ifndef ANA_40
+#define ANA_40 2000
+#endif
+#ifndef ANA_70
+#define ANA_70 1000
+#endif
+
+#ifndef OLED_SH1106
+#define OLED_SH1106 0
+#endif
+#ifndef OLED_SO_PRESENCA
+#define OLED_SO_PRESENCA 1
+#endif
+#if USAR_OLED
+#include <U8g2lib.h>
+#if OLED_SH1106
+U8G2_SH1106_128X64_NONAME_F_HW_I2C oled(U8G2_R0, U8X8_PIN_NONE, PIN_SCL, PIN_SDA);
+#else
+U8G2_SSD1306_128X64_NONAME_F_HW_I2C oled(U8G2_R0, U8X8_PIN_NONE, PIN_SCL, PIN_SDA);
+#endif
+#endif
 const int pirPin = PIN_PIR;
 const int luzDigPin = PIN_LUZ_DIG;
 const int potPin = PIN_LUZ_ANA;
@@ -44,6 +83,7 @@ const unsigned long TIMEOUT_MS = 10000;
 const unsigned long LEITURA_MS = 15000;
 const unsigned long RECONNECT_MS = 20000;
 const unsigned long REENVIO_MS = 15000;
+const unsigned long ECRA_MS = 1000;
 
 struct Leitura {
   uint32_t ts;
@@ -64,17 +104,19 @@ bool temPresenca = false;
 bool ntpIniciado = false;
 long bootId = 0;
 uint32_t proximoSeq = 0;
+int luzAtual = 0, brilhoAtual = 0;
+unsigned long ultimoEcra = 0;
 
 int nivelBrilho(int luz) {
-  if (luz > 3000) return 0;
-  if (luz > 2000) return 102;
-  if (luz > 1000) return 178;
+  if (luz > ANA_APAGA) return 0;
+  if (luz > ANA_40) return 102;
+  if (luz > ANA_70) return 178;
   return 255;
 }
 int nivelBrilhoLux(float lux) {
-  if (lux > 300) return 0;
-  if (lux > 150) return 102;
-  if (lux > 50) return 178;
+  if (lux > LUX_APAGA) return 0;
+  if (lux > LUX_40) return 102;
+  if (lux > LUX_70) return 178;
   return 255;
 }
 
@@ -155,6 +197,42 @@ int enviarUma(const Leitura &l) {
   return code;
 }
 
+#if USAR_OLED
+void atualizarEcra() {
+  if (OLED_SO_PRESENCA && !temPresenca) { oled.setPowerSave(1); return; }
+  oled.setPowerSave(0);
+  char l[32];
+  oled.clearBuffer();
+  oled.setFont(u8g2_font_6x10_tf);
+  snprintf(l, sizeof l, "SmartLight %s %s", NO_ID, DIVISAO);
+  oled.drawUTF8(0, 10, l);
+  oled.drawHLine(0, 13, 128);
+#if SENSOR_LUZ == 0
+  snprintf(l, sizeof l, "Luz: %d lux", luzAtual);
+#elif SENSOR_LUZ == 1
+  snprintf(l, sizeof l, "Luz: %s", luzAtual ? "escuro" : "claro");
+#elif SENSOR_LUZ == 3
+  snprintf(l, sizeof l, "Luz: %d", luzAtual);
+#else
+  snprintf(l, sizeof l, "Luz: sem sensor");
+#endif
+  oled.drawUTF8(0, 25, l);
+  snprintf(l, sizeof l, "Presença: %s", temPresenca ? "sim" : "não");
+  oled.drawUTF8(0, 36, l);
+  snprintf(l, sizeof l, "LED: %d%%", (int)map(brilhoAtual, 0, 255, 0, 100));
+  oled.drawUTF8(0, 47, l);
+  time_t agora = time(nullptr);
+  struct tm t;
+  localtime_r(&agora, &t);
+  if (agora > 1700000000) snprintf(l, sizeof l, "%s  Fila %d  %02d:%02d",
+      WiFi.status() == WL_CONNECTED ? "Wi-Fi" : "Sem Wi-Fi", filaN, t.tm_hour, t.tm_min);
+  else snprintf(l, sizeof l, "%s  Fila %d",
+      WiFi.status() == WL_CONNECTED ? "Wi-Fi" : "Sem Wi-Fi", filaN);
+  oled.drawUTF8(0, 60, l);
+  oled.sendBuffer();
+}
+#endif
+
 void tratarFila() {
   if (filaN == 0 || WiFi.status() != WL_CONNECTED) return;
   if (millis() - ultimaTentativaEnvio < esperaEnvio) return;
@@ -177,9 +255,18 @@ void setup() {
   pinMode(pirPin, INPUT);
   pinMode(luzDigPin, INPUT);
   ledcAttach(ledPin, 5000, 8);
-#if SENSOR_LUZ == 0
+#if SENSOR_LUZ == 0 || USAR_OLED
   Wire.begin(PIN_SDA, PIN_SCL);
+#endif
+#if SENSOR_LUZ == 0
   sensorLuz.begin();
+#endif
+#if USAR_OLED
+  oled.begin();
+  oled.setFont(u8g2_font_6x10_tf);
+  oled.drawUTF8(0, 10, "SmartLight");
+  oled.drawUTF8(0, 25, "A ligar ao Wi-Fi...");
+  oled.sendBuffer();
 #endif
   for (filaCap = FILA_MAX; filaCap >= 100; filaCap /= 2) {
     fila = (Leitura*)malloc(sizeof(Leitura) * filaCap);
@@ -204,7 +291,12 @@ void loop() {
     Serial.printf("Sem Wi-Fi (estado %d), a tentar de novo...\n", WiFi.status());
     ligarWifi();
   }
-  if (WiFi.status() == WL_CONNECTED && !ntpIniciado) { configTime(0, 0, "pool.ntp.org"); ntpIniciado = true; }
+  if (WiFi.status() == WL_CONNECTED && !ntpIniciado) {
+    configTime(0, 0, "pool.ntp.org");
+    setenv("TZ", "WET0WEST,M3.5.0/1,M10.5.0", 1);
+    tzset();
+    ntpIniciado = true;
+  }
 
   if (digitalRead(pirPin) == HIGH) { ultimoMovimento = millis(); temPresenca = true; }
   if (temPresenca && millis() - ultimoMovimento > TIMEOUT_MS) temPresenca = false;
@@ -212,6 +304,8 @@ void loop() {
   lerLuz(raw, b);
   int brilho = temPresenca ? b : 0;
   ledcWrite(ledPin, brilho);
+  luzAtual = raw;
+  brilhoAtual = brilho;
 
   if (millis() - ultimaLeitura > LEITURA_MS) {
     ultimaLeitura = millis();
@@ -221,5 +315,9 @@ void loop() {
   }
 
   tratarFila();
+
+#if USAR_OLED
+  if (millis() - ultimoEcra > ECRA_MS) { ultimoEcra = millis(); atualizarEcra(); }
+#endif
   delay(200);
 }
