@@ -1,4 +1,4 @@
-// SmartLight, firmware do nó 1, versão 3 com a fila guardada na flash.
+// SmartLight, firmware do nó 1, versão 4 com a corrente do LED medida pelo INA219.
 // Lê a presença e a luz, controla o LED e envia as leituras por HTTPS, com fila quando não há ligação.
 #include <WiFi.h>
 #include <HTTPClient.h>
@@ -9,7 +9,10 @@
 #ifndef USAR_OLED
 #define USAR_OLED 0
 #endif
-#if SENSOR_LUZ == 0 || USAR_OLED
+#ifndef USAR_INA219
+#define USAR_INA219 0
+#endif
+#if SENSOR_LUZ == 0 || USAR_OLED || USAR_INA219
 #include <Wire.h>
 #endif
 #if SENSOR_LUZ == 0
@@ -93,6 +96,7 @@ struct Leitura {
   int16_t luzRaw;
   uint8_t presenca;
   uint8_t ledPct;
+  int16_t corrente;
 };
 const int FILA_MAX = 5760;
 Leitura* fila = nullptr;
@@ -112,7 +116,7 @@ uint32_t proximoSeq = 0;
 #endif
 const char* FICH_FILA = "/fila.bin";
 const char* FICH_TEMP = "/fila.tmp";
-const uint32_t FILA_MAGIC = 0x534C4633;
+const uint32_t FILA_MAGIC = 0x534C4634;
 const unsigned long GRAVAR_MS = 300000;
 const int GRAVAR_MIN = 20;
 bool flashOk = false, ficheiroExiste = false;
@@ -132,6 +136,35 @@ int nivelBrilhoLux(float lux) {
   if (lux > LUX_70) return 178;
   return 255;
 }
+
+#if USAR_INA219
+const uint8_t INA_ADDR = 0x40;
+bool inaOk = false;
+
+bool inaEscrever(uint8_t reg, uint16_t v) {
+  Wire.beginTransmission(INA_ADDR);
+  Wire.write(reg); Wire.write(v >> 8); Wire.write(v & 0xFF);
+  return Wire.endTransmission() == 0;
+}
+bool inaLer(uint8_t reg, int16_t &v) {
+  Wire.beginTransmission(INA_ADDR);
+  Wire.write(reg);
+  if (Wire.endTransmission(false) != 0) return false;
+  if (Wire.requestFrom(INA_ADDR, (uint8_t)2) != 2) return false;
+  v = (int16_t)((Wire.read() << 8) | Wire.read());
+  return true;
+}
+void iniciarINA() {
+  inaOk = inaEscrever(0x00, 0x07FF);
+  Serial.println(inaOk ? "INA219 encontrado" : "INA219 não responde");
+}
+// Corrente em décimas de mA. Com shunt de 0,1 ohm cada unidade são 0,1 mA. Devolve -1 se falhar.
+int16_t lerCorrente() {
+  int16_t raw;
+  if (!inaOk || !inaLer(0x01, raw)) return -1;
+  return raw < 0 ? 0 : raw;
+}
+#endif
 
 void ligarWifi() {
   WiFi.mode(WIFI_STA);
@@ -175,6 +208,11 @@ void registar(int raw, int brilho255) {
   l.luzRaw = (int16_t)raw;
   l.presenca = temPresenca ? 1 : 0;
   l.ledPct = (uint8_t)map(brilho255, 0, 255, 0, 100);
+#if USAR_INA219
+  l.corrente = lerCorrente();
+#else
+  l.corrente = -1;
+#endif
   guardar(l);
 }
 
@@ -189,12 +227,14 @@ int enviarUma(const Leitura &l) {
 #else
   strcpy(amb, "{}");
 #endif
-  char corpo[400];
+  char corr[32] = "";
+  if (l.corrente >= 0) snprintf(corr, sizeof corr, ",\"corrente_ma\":%d.%d", l.corrente / 10, l.corrente % 10);
+  char corpo[440];
   snprintf(corpo, sizeof corpo,
     "{\"no_id\":\"%s\",\"boot_id\":%ld,\"seq\":%lu,\"ts\":%lu,\"ambiente\":%s,"
-    "\"divisoes\":[{\"id\":\"%s\",\"presenca\":%s,\"led_pct\":%d,\"modo\":\"auto\"}]}",
+    "\"divisoes\":[{\"id\":\"%s\",\"presenca\":%s,\"led_pct\":%d,\"modo\":\"auto\"%s}]}",
     NO_ID, (long)l.boot, (unsigned long)l.seq, (unsigned long)l.ts, amb, DIVISAO,
-    l.presenca ? "true" : "false", (int)l.ledPct);
+    l.presenca ? "true" : "false", (int)l.ledPct, corr);
 #if USAR_HTTPS
   WiFiClientSecure client;
   client.setInsecure();      // ligação cifrada, sem verificação do certificado
@@ -233,7 +273,13 @@ void atualizarEcra() {
   oled.drawUTF8(0, 25, l);
   snprintf(l, sizeof l, "Presença: %s", temPresenca ? "sim" : "não");
   oled.drawUTF8(0, 36, l);
+#if USAR_INA219
+  int16_t c = lerCorrente();
+  if (c >= 0) snprintf(l, sizeof l, "LED: %d%%  %d.%d mA", (int)map(brilhoAtual, 0, 255, 0, 100), c / 10, c % 10);
+  else snprintf(l, sizeof l, "LED: %d%%", (int)map(brilhoAtual, 0, 255, 0, 100));
+#else
   snprintf(l, sizeof l, "LED: %d%%", (int)map(brilhoAtual, 0, 255, 0, 100));
+#endif
   oled.drawUTF8(0, 47, l);
   time_t agora = time(nullptr);
   struct tm t;
@@ -316,8 +362,11 @@ void setup() {
   pinMode(pirPin, INPUT);
   pinMode(luzDigPin, INPUT);
   ledcAttach(ledPin, 5000, 8);
-#if SENSOR_LUZ == 0 || USAR_OLED
+#if SENSOR_LUZ == 0 || USAR_OLED || USAR_INA219
   Wire.begin(PIN_SDA, PIN_SCL);
+#endif
+#if USAR_INA219
+  iniciarINA();
 #endif
 #if SENSOR_LUZ == 0
   sensorLuz.begin();
@@ -377,8 +426,10 @@ void loop() {
   if (millis() - ultimaLeitura > LEITURA_MS) {
     ultimaLeitura = millis();
     registar(raw, brilho);
-    Serial.printf("presenca=%d luz=%d brilho=%d | fila=%d perdidas=%lu recusadas=%lu\n",
-                  temPresenca, raw, brilho, filaN, perdidas, rejeitadas);
+    int16_t cUlt = filaN > 0 ? fila[(filaIni + filaN - 1) % filaCap].corrente : -1;
+    Serial.printf("presenca=%d luz=%d brilho=%d corrente=%d.%d mA | fila=%d perdidas=%lu recusadas=%lu\n",
+                  temPresenca, raw, brilho, cUlt < 0 ? -1 : cUlt / 10, cUlt < 0 ? 0 : cUlt % 10,
+                  filaN, perdidas, rejeitadas);
   }
 
   tratarFila();

@@ -8,4 +8,5 @@
 // Sensor de luz. 0 BH1750 em lux, 1 módulo digital e 3 potenciómetro analógico
 #define SENSOR_LUZ 0
 #define USAR_HTTPS 1
+#define USAR_INA219 1
 #define DIVISAO "sala"

@@ -1,6 +1,6 @@
 # Nó 1
 
-Firmware do nó 1, com sensor de luz BH1750. Lê a presença e a luz, controla o LED com a regra local e envia as leituras por HTTPS para o servidor, com fila na memória e na flash para quando não há ligação.
+Firmware do nó de referência, com sensor de luz BH1750 e medição da corrente do LED com o INA219. Lê a presença e a luz, controla o LED com a regra local e envia as leituras por HTTPS para o servidor, com fila na memória e na flash para quando não há ligação.
 
 ## Ligações por omissão (ESP32 DevKit)
 
@@ -10,7 +10,7 @@ Firmware do nó 1, com sensor de luz BH1750. Lê a presença e a luz, controla o
 | Sensor PIR (OUT) | GPIO27 |
 | Módulo de luz digital (DO) | GPIO34 |
 | Módulo de luz analógico | GPIO35 |
-| BH1750 (SDA e SCL) | GPIO21 e GPIO22 |
+| BH1750 e INA219 (SDA e SCL) | GPIO21 e GPIO22 |
 
 ## Configuração
 
