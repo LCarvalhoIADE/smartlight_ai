@@ -1,0 +1,11 @@
+// Copiar para config.h e preencher. O config.h nunca vai para o repositório.
+#define WIFI_SSID ""
+#define WIFI_PASS ""
+#define SERVER_URL "https://DOMINIO/leituras.php"
+#define NO_ID "no1"
+#define NO_TOKEN ""
+
+// Sensor de luz. 0 BH1750 em lux, 1 módulo digital e 3 potenciómetro analógico
+#define SENSOR_LUZ 0
+#define USAR_HTTPS 1
+#define DIVISAO "sala"
