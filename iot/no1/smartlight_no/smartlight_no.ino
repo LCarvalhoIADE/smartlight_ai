@@ -1,10 +1,11 @@
-// SmartLight, firmware do nó 1, versão 2 com ecrã OLED e limites de luz no config.h.
+// SmartLight, firmware do nó 1, versão 3 com a fila guardada na flash.
 // Lê a presença e a luz, controla o LED e envia as leituras por HTTPS, com fila quando não há ligação.
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <time.h>
 #include "config.h"
+#include <LittleFS.h>
 #ifndef USAR_OLED
 #define USAR_OLED 0
 #endif
@@ -88,6 +89,7 @@ const unsigned long ECRA_MS = 1000;
 struct Leitura {
   uint32_t ts;
   uint32_t seq;
+  uint32_t boot;
   int16_t luzRaw;
   uint8_t presenca;
   uint8_t ledPct;
@@ -104,6 +106,17 @@ bool temPresenca = false;
 bool ntpIniciado = false;
 long bootId = 0;
 uint32_t proximoSeq = 0;
+
+#ifndef FILA_FLASH
+#define FILA_FLASH 1
+#endif
+const char* FICH_FILA = "/fila.bin";
+const char* FICH_TEMP = "/fila.tmp";
+const uint32_t FILA_MAGIC = 0x534C4633;
+const unsigned long GRAVAR_MS = 300000;
+const int GRAVAR_MIN = 20;
+bool flashOk = false, ficheiroExiste = false;
+unsigned long ultimaGravacao = 0;
 int luzAtual = 0, brilhoAtual = 0;
 unsigned long ultimoEcra = 0;
 
@@ -158,6 +171,7 @@ void registar(int raw, int brilho255) {
   Leitura l;
   l.ts = (uint32_t)agora;
   l.seq = proximoSeq++;
+  l.boot = (uint32_t)bootId;
   l.luzRaw = (int16_t)raw;
   l.presenca = temPresenca ? 1 : 0;
   l.ledPct = (uint8_t)map(brilho255, 0, 255, 0, 100);
@@ -179,7 +193,7 @@ int enviarUma(const Leitura &l) {
   snprintf(corpo, sizeof corpo,
     "{\"no_id\":\"%s\",\"boot_id\":%ld,\"seq\":%lu,\"ts\":%lu,\"ambiente\":%s,"
     "\"divisoes\":[{\"id\":\"%s\",\"presenca\":%s,\"led_pct\":%d,\"modo\":\"auto\"}]}",
-    NO_ID, bootId, (unsigned long)l.seq, (unsigned long)l.ts, amb, DIVISAO,
+    NO_ID, (long)l.boot, (unsigned long)l.seq, (unsigned long)l.ts, amb, DIVISAO,
     l.presenca ? "true" : "false", (int)l.ledPct);
 #if USAR_HTTPS
   WiFiClientSecure client;
@@ -241,6 +255,7 @@ void tratarFila() {
   ultimaTentativaEnvio = millis();
   Serial.printf("POST seq=%lu -> %d (fila=%d)\n", (unsigned long)l.seq, code, filaN);
   if (code == 200 || code == 400 || code == 422) {
+    // 200 aceite, nova ou duplicada. 400 e 422 leitura inválida, que sai da fila.
     if (code != 200) { rejeitadas++; Serial.println("Leitura recusada pelo servidor, descartada"); }
     filaIni = (filaIni + 1) % filaCap;
     filaN--;
@@ -249,6 +264,52 @@ void tratarFila() {
     esperaEnvio = REENVIO_MS;
   }
 }
+
+#if FILA_FLASH
+// Escreve num ficheiro temporário e só depois o renomeia, para que um corte de energia não estrague a cópia anterior.
+void gravarFila() {
+  File f = LittleFS.open(FICH_TEMP, "w");
+  if (!f) { Serial.println("Flash: erro ao abrir o ficheiro"); return; }
+  uint32_t cab[2] = { FILA_MAGIC, (uint32_t)filaN };
+  f.write((const uint8_t*)cab, sizeof cab);
+  int primeira = min(filaN, filaCap - filaIni);
+  f.write((const uint8_t*)&fila[filaIni], sizeof(Leitura) * primeira);
+  if (filaN > primeira) f.write((const uint8_t*)&fila[0], sizeof(Leitura) * (filaN - primeira));
+  f.close();
+  LittleFS.remove(FICH_FILA);
+  LittleFS.rename(FICH_TEMP, FICH_FILA);
+  ficheiroExiste = true;
+  Serial.printf("Flash: fila copiada (%d leituras)\n", filaN);
+}
+
+void carregarFila() {
+  if (!LittleFS.exists(FICH_FILA)) return;
+  ficheiroExiste = true;
+  File f = LittleFS.open(FICH_FILA, "r");
+  if (!f) return;
+  uint32_t cab[2] = {0, 0};
+  if (f.read((uint8_t*)cab, sizeof cab) != sizeof cab || cab[0] != FILA_MAGIC) {
+    f.close(); Serial.println("Flash: ficheiro da fila inválido, ignorado"); return;
+  }
+  int n = 0;
+  Leitura l;
+  while (n < (int)cab[1] && f.read((uint8_t*)&l, sizeof l) == sizeof l) { guardar(l); n++; }
+  f.close();
+  Serial.printf("Flash: recuperadas %d leituras do arranque anterior\n", n);
+}
+
+void tratarFlash() {
+  if (!flashOk) return;
+  if (filaN >= GRAVAR_MIN && millis() - ultimaGravacao > GRAVAR_MS) {
+    ultimaGravacao = millis();
+    gravarFila();
+  } else if (filaN == 0 && ficheiroExiste) {
+    LittleFS.remove(FICH_FILA);
+    ficheiroExiste = false;
+    Serial.println("Flash: fila enviada, ficheiro apagado");
+  }
+}
+#endif
 
 void setup() {
   Serial.begin(115200);
@@ -274,6 +335,11 @@ void setup() {
   }
   if (!fila) filaCap = 0;
   Serial.printf("Fila offline: %d leituras (%u bytes)\n", filaCap, (unsigned)(sizeof(Leitura) * filaCap));
+#if FILA_FLASH
+  flashOk = LittleFS.begin(true);
+  if (flashOk) carregarFila();
+  else Serial.println("Flash indisponível: fila só em RAM");
+#endif
 
   WiFi.onEvent([](WiFiEvent_t e, WiFiEventInfo_t info) {
     Serial.printf("Wi-Fi caiu, motivo %d\n", info.wifi_sta_disconnected.reason);
@@ -298,6 +364,7 @@ void loop() {
     ntpIniciado = true;
   }
 
+  // Regra local da luz
   if (digitalRead(pirPin) == HIGH) { ultimoMovimento = millis(); temPresenca = true; }
   if (temPresenca && millis() - ultimoMovimento > TIMEOUT_MS) temPresenca = false;
   int raw, b;
@@ -315,6 +382,9 @@ void loop() {
   }
 
   tratarFila();
+#if FILA_FLASH
+  tratarFlash();
+#endif
 
 #if USAR_OLED
   if (millis() - ultimoEcra > ECRA_MS) { ultimoEcra = millis(); atualizarEcra(); }
