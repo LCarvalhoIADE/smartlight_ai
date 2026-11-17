@@ -12,7 +12,7 @@ from ai.src.selecionar_previsao_meteorologica import selecionar
 
 
 @pytest.fixture
-def historico(): 
+def historico():
     """Metadados fictícios para uma instalação de teste."""
     return {
         "no": {
@@ -22,6 +22,7 @@ def historico():
             "fuso": "Europe/Lisbon",
         }
     }
+
 
 @pytest.fixture
 def emissao():
@@ -72,7 +73,7 @@ def criar_aquisicao(historico, disponivel):
     )
 
 
-def testar_selecao(documentos, historico, emissao, **opcoes):
+def executar_selecao(documentos, historico, emissao, **opcoes):
     """Encurta as chamadas sem alterar o comportamento do seletor."""
     return selecionar(
         documentos,
@@ -110,7 +111,7 @@ def test_fronteiras_temporais(
     )
     documento = criar_aquisicao(historico, disponivel)
 
-    resultado = testar_selecao([documento], historico, emissao)
+    resultado = executar_selecao([documento], historico, emissao)
 
     assert (resultado["selecionada"] is not None) is aceite
     assert resultado["elegiveis"] == int(aceite)
@@ -131,7 +132,7 @@ def test_escolhe_mais_recente_sem_alterar_entrada(historico, emissao):
     original = deepcopy(documentos)
     original_historico = deepcopy(historico)
 
-    resultado = testar_selecao(documentos, historico, emissao)
+    resultado = executar_selecao(documentos, historico, emissao)
 
     assert resultado["indice_selecionado"] == 0
     assert resultado["elegiveis"] == 2
@@ -147,7 +148,7 @@ def test_escolhe_mais_recente_sem_alterar_entrada(historico, emissao):
 def test_empate_mantem_primeiro(historico, emissao):
     documento = criar_aquisicao(historico, emissao.replace(hour=19))
 
-    resultado = testar_selecao(
+    resultado = executar_selecao(
         [documento, deepcopy(documento)],
         historico,
         emissao,
@@ -158,7 +159,7 @@ def test_empate_mantem_primeiro(historico, emissao):
 
 
 def test_lista_vazia_devolve_indisponivel(historico, emissao):
-    resultado = testar_selecao([], historico, emissao)
+    resultado = executar_selecao([], historico, emissao)
 
     assert resultado["estado"] == "indisponivel"
     assert resultado["selecionada"] is None
@@ -225,7 +226,7 @@ def test_rejeita_candidato_incompativel(historico, emissao, problema):
     elif problema == "relogio":
         aquisicao["inicio_consulta_utc"] = "2026-11-16T19:01:00+00:00"
 
-    resultado = testar_selecao([documento], historico, emissao)
+    resultado = executar_selecao([documento], historico, emissao)
 
     assert resultado["estado"] == "indisponivel"
     assert resultado["selecionada"] is None
@@ -238,7 +239,7 @@ def test_rejeitada_nao_impede_outra_valida(historico, emissao):
     historica = deepcopy(valida)
     historica["aquisicao"]["tipo"] = "meteorologia_historica"
 
-    resultado = testar_selecao(
+    resultado = executar_selecao(
         [historica, valida],
         historico,
         emissao,
@@ -258,7 +259,7 @@ def test_parametros_configuraveis(historico, emissao):
 
     # Com idade máxima de 10h, a aquisição das 09h é rejeitada.
     # Com margem de 30min, a aquisição das 19h40 também é rejeitada.
-    resultado = testar_selecao(
+    resultado = executar_selecao(
         [antiga, recente],
         historico,
         emissao,
@@ -284,12 +285,12 @@ def test_parametros_configuraveis(historico, emissao):
 )
 def test_rejeita_limites_invalidos(historico, emissao, opcoes):
     with pytest.raises(ValueError):
-        testar_selecao([], historico, emissao, **opcoes)
+        executar_selecao([], historico, emissao, **opcoes)
 
 
 def test_rejeita_emissao_sem_fuso(historico):
     with pytest.raises(ValueError, match="fuso"):
-        testar_selecao(
+        executar_selecao(
             [],
             historico,
             datetime(2026, 11, 16, 20),
@@ -319,7 +320,7 @@ def test_dia_alvo_com_mudanca_de_hora(historico, fuso, mes, dia, horas):
         emissao_utc - timedelta(minutes=10),
     )
 
-    resultado = testar_selecao(
+    resultado = executar_selecao(
         [documento],
         historico,
         emissao_local,
@@ -345,7 +346,7 @@ def test_idade_contada_ate_emissao(historico, emissao):
         emissao - timedelta(hours=12, minutes=5),
     )
 
-    resultado = testar_selecao([documento], historico, emissao)
+    resultado = executar_selecao([documento], historico, emissao)
 
     assert resultado["selecionada"] is None
     assert "antiga" in resultado["rejeitadas"][0]["motivo"]
