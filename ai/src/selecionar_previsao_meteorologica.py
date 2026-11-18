@@ -45,7 +45,6 @@ def ler_instante(valor):
             "Timestamp inválido ou sem fuso explícito."
         ) from None
 
-
 def validar_limites(margem_minutos, idade_maxima_horas):
     """Valida os parâmetros antes de analisar qualquer aquisição."""
     for nome, valor in (
@@ -146,7 +145,7 @@ def validar_candidato(
         raise ValueError("Parâmetros do pedido ausentes.")
 
     # Confirma as coordenadas efetivamente utilizadas no pedido.
-    # As coordenadas da grelha devolvida pela API podem ser diferentes.
+     # As coordenadas da grelha devolvida pela API podem ser diferentes.
     for campo in ("latitude", "longitude"):
         valor = parametros.get(campo)
 
