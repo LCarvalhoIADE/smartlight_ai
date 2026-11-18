@@ -24,7 +24,7 @@ def historico():
     }
 
 
-@pytest.fixtures
+@pytest.fixture
 def alvos():
     """Uma hora com energia válida e cobertura completa."""
 
