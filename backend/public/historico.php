@@ -28,7 +28,7 @@ $de = $int('de', $ate - 86400);
 if ($de > $ate) resp(422, ['erro' => 'de tem de ser menor ou igual a ate']);
 $limite = max(1, min(10000, $int('limite', 1000)));
 $desloca = $int('desloca', 0);
-$sql = 'SELECT divisao, ts, luz_raw, luz_pct, presenca, led_pct, corrente_ma, modo FROM leituras WHERE no_id = ? AND ts BETWEEN ? AND ?';
+$sql = 'SELECT divisao, ts, UNIX_TIMESTAMP(recebido_em) AS recebido_ts, luz_raw, luz_pct, presenca, led_pct, corrente_ma, modo FROM leituras WHERE no_id = ? AND ts BETWEEN ? AND ?';
 $par = [$no, $de, $ate];
 $div = $_GET['divisao'] ?? '';
 if ($div !== '') {
